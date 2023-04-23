@@ -51,3 +51,13 @@ def are_all_str_in_list(list1, list2, accept_substr=True, break_on_first_fail = 
             else:
                 returned_value.append(i)
     return returned_value
+
+def has_value_been_cliped(value, min_val=0, max_val=1):
+    """
+    Clip value, and return True if the value has indeed been affected
+    """
+    if value < min_val:
+        return min_val, True
+    if value > max_val:
+        return max_val, True
+    return value, False
