@@ -61,3 +61,12 @@ def has_value_been_cliped(value, min_val=0, max_val=1):
     if value > max_val:
         return max_val, True
     return value, False
+
+def cpu_full_afinity():
+    import psutil
+    import multiprocessing
+    kernel_list = generate_filters_list()
+    p = psutil.Process(os.getpid())
+    print(p.cpu_affinity())
+    p.cpu_affinity(range(multiprocessing.cpu_count()))
+    print(p.cpu_affinity())
