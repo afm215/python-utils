@@ -13,7 +13,7 @@ def flatten_paths_recursively(root_path, output_absolute_path=False, depth = Non
     root_path = format_prepath(root_path)
     for elt in os.listdir(root_path):
         elt_path = root_path + elt
-        result += flatten_path_recursively(elt_path, output_absolute_path, None if depth is None else depth - 1)
+        result += flatten_paths_recursively(elt_path, output_absolute_path, None if depth is None else depth - 1)
     return result
 
 def format_prepath(prepath: str) -> str:
