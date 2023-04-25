@@ -1,5 +1,21 @@
 import os 
 
+def flatten_paths_recursively(root_path, output_absolute_path=False, depth = None):
+    """
+    return the list of the paths of all the file contained in root_path
+    """
+    result = []
+    if os.path.isfile(root_path) or(not(depth is None) and depth == 0 ):
+        if output_absolute_path:
+            return [os.path.abspath(root_path)]
+        return [root_path]
+    
+    root_path = format_prepath(root_path)
+    for elt in os.listdir(root_path):
+        elt_path = root_path + elt
+        result += flatten_path_recursively(elt_path, output_absolute_path, None if depth is None else depth - 1)
+    return result
+
 def format_prepath(prepath: str) -> str:
     """
     Check if the prepath exists, and if it is a folder. Than retunrn the prepath with / at the end whatever the input is.
@@ -16,6 +32,7 @@ def apply_prepath_on_list(list_: list, prepath: str):
     OUTPUT:
         - list of the prepath concatenate with each filename
     """
+    prepath = format_prepath(prepath)
     return list(map(lambda elt: prepath + elt, list_))
 
 def apply_post_str_on_list(list_:list, post_str:str):
