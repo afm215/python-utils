@@ -1,3 +1,5 @@
+import math 
+
 def split_recursively(list_or_str, *args,  ok_if_not_string=True,delete_empty_string=True, **kwargs):
     """
     Apply a split to a list recursively
@@ -61,6 +63,24 @@ def has_value_been_cliped(value, min_val=0, max_val=1):
     if value > max_val:
         return max_val, True
     return value, False
+
+def format_number(input, max_int_length = None,max_decimal_length = None):
+    """
+    convert a number to str and format it so that the integer part doesn't exceed  max_int_length and the decimal part doesn't exceed max_decimal_length
+    """
+    output = str(input)
+    if not(max_decimal_length is None) and (max_int_length is None):
+        return ("{:." + str(max_decimal_length) + "f}").format(input)
+    if not(max_int_length is None):
+        ten_power = int(math.log(input)/ math.log(10))
+        output = input /(10**(ten_power +1 - max_int_length))
+        if not(max_decimal_length is None):
+            return ("{:." + str(max_decimal_length) + "f}").format(output) + " + 1e" + str(ten_power +1 - max_int_length)
+        return str(output) + " + 1e" + str(ten_power +1 - max_int_length)
+    return output
+
+
+
 
 def cpu_full_afinity():
     import psutil
