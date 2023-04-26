@@ -38,6 +38,7 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
                                         )
                                     ) if file_tree_level == 1 else [target] )
 
+    content_to_tar_paths = list(filter(lambda elt : elt[-3:]!= 'tar', content_to_tar_paths))
     length = len(content_to_tar_paths)
     print("creating the tars for ", length, " elements")
     for (i,elt_path) in enumerate(content_to_tar_paths):
@@ -63,4 +64,24 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
                 run("rm -r "+ elt_path, False )                
         else:
             print("file already existing : ", elt_path+ '.tar')
+
+def extracts_tar(path = './', remove_init_tar_folder = False, output_folder=None):
+    if os.path.isfile(path):
+        path_split = path.split('/')
+        if output_folder is None:
+            dir_path = '/'.join(path_split[:-1])
+        else:
+            dir_path = output_folder
+            os.makedirs(dir_path, exist_ok=True)
+        if path[-3:] == 'tar' :
+            cmd = "tar -xf " + path + '-C' + dir_path
+
+        elif path[-6:] == '.tar.gz':
+            cmd = "tar -xzf " + path + '-C' + dir_path
+        run(cmd, False)
+    else:
+        dir_path = format_prepath(path)
+        for elt in os.listdir(dir_path):
+            extracts_tar(dir_path + elt, remove_init_tar_folder, output_folder)
+
         
