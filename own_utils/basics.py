@@ -9,7 +9,7 @@ def split_recursively(list_or_str, *args,  ok_if_not_string=True,delete_empty_st
     OUTPUT: the splitted output
     """
     if type(list_or_str) == list:
-        return [split_recursively(elt) for elt in list_or_str]
+        return [split_recursively(elt, *args,  ok_if_not_string = ok_if_not_string,delete_empty_string = delete_empty_string, **kwargs) for elt in list_or_str]
     else:
         if ok_if_not_string and type(list_or_str ) != str:
             return list_or_str
@@ -85,7 +85,6 @@ def format_number(input, max_int_length = None,max_decimal_length = None):
 def cpu_full_afinity():
     import psutil
     import multiprocessing
-    kernel_list = generate_filters_list()
     p = psutil.Process(os.getpid())
     print(p.cpu_affinity())
     p.cpu_affinity(range(multiprocessing.cpu_count()))
