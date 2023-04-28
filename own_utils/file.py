@@ -8,7 +8,9 @@ import time
 def extract_file_lines_to_list(file_path:str, skip_blank_line=True):
     """
     Extract each lines of a file into a list and ignore \n
-    INPUT:
+
+    INPUTS:
+    -------
         - file path : the path of the file to be considered
         - skip_blank_line : if set to True, remove the blank lines
     """
@@ -22,11 +24,14 @@ def extract_file_lines_to_list(file_path:str, skip_blank_line=True):
 def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, remove_init_folder = False,  run_with_bash = True):
     """
     add target to tar file named "<target_name>.tar
-    INPUTS: - target
-            - file_tree_level -> default is 0 i.e. creat a tar archive of the target. If set to a number k, will convert the content at depth k in tar
-            - replace_existing , if set to False, skip th ewriting if the tar file already exists
-            - remove_init_folder, if True, remove the original folder after taring
-            - run_with_bash, if True, use the bash command instead of the python tarfile lib
+
+    INPUTS: 
+    ------
+        - target
+        - file_tree_level : default is 0 i.e. creat a tar archive of the target. If set to a number k, will convert the content at depth k in tar
+        - replace_existing : if set to False, skip th ewriting if the tar file already exists
+        - remove_init_folder : if True, remove the original folder after taring
+        - run_with_bash : if True, use the bash command instead of the python tarfile lib
     """
     print("getting files path to tar ... ")
     content_to_tar_paths = flatten_paths_recursively(
@@ -66,6 +71,15 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
             print("file already existing : ", elt_path+ '.tar')
 
 def extracts_tar(path = './', remove_init_tar_folder = False, output_folder=None):
+    """
+    Extract the specified tar
+
+    INPUTS:
+    -------
+    - path : file to ward the tar file
+    - remove_init_tar_folder : If set to True, remove the file located at `path`after the extraction
+    - output_folder : if None, the extracted content will be at the same level as the input filen, else the content will be deplace in output_folder 
+    """
     if os.path.isfile(path):
         path_split = path.split('/')
         if output_folder is None:
@@ -83,5 +97,14 @@ def extracts_tar(path = './', remove_init_tar_folder = False, output_folder=None
         dir_path = format_prepath(path)
         for elt in os.listdir(dir_path):
             extracts_tar(dir_path + elt, remove_init_tar_folder, output_folder)
+
+def copy_file(src_path, dst):
+    """
+    Copy `src_path` to `dst`
+    """
+    dst = format_prepath(dst)
+    cmd = "cp " + src_path + " " + dst
+    run(cmd, False)
+
 
         
