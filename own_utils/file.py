@@ -70,7 +70,7 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
         else:
             print("file already existing : ", elt_path+ '.tar', flush=True)
 
-def extracts_tar(path = './', remove_init_tar_folder = False, output_folder=None):
+def extracts_tar(path:str = './', remove_init_tar_folder = False, output_folder:str=None):
     """
     Extract the specified tar
 
@@ -98,7 +98,7 @@ def extracts_tar(path = './', remove_init_tar_folder = False, output_folder=None
         for elt in os.listdir(dir_path):
             extracts_tar(dir_path + elt, remove_init_tar_folder, output_folder)
 
-def copy_file(src_path, dst):
+def copy_file(src_path:str, dst:str):
     """
     Copy `src_path` to `dst`
     """
