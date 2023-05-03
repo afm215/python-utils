@@ -33,7 +33,7 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
         - remove_init_folder : if True, remove the original folder after taring
         - run_with_bash : if True, use the bash command instead of the python tarfile lib
     """
-    print("getting files path to tar ... ")
+    print("getting files path to tar ... ", flush=True)
     content_to_tar_paths = flatten_paths_recursively(
         target, depth=file_tree_level, output_absolute_path=True
                             ) if file_tree_level > 1 else (
@@ -45,9 +45,9 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
 
     content_to_tar_paths = list(filter(lambda elt : elt[-3:]!= 'tar', content_to_tar_paths))
     length = len(content_to_tar_paths)
-    print("creating the tars for ", length, " elements")
+    print("creating the tars for ", length, " elements", flush=True)
     for (i,elt_path) in enumerate(content_to_tar_paths):
-        print("Completed at ", format_number(i / length, max_decimal_length=2),  end = '\r')
+        print("Completed at ", format_number(i / length, max_decimal_length=2),  end = '\r', flush=True)
         if replace_existing or not(os.path.exists(elt_path + '.tar')):
             try:
                 os.remove(elt_path + '.tar')
@@ -68,7 +68,7 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
             if remove_init_folder:
                 run("rm -r "+ elt_path, False )                
         else:
-            print("file already existing : ", elt_path+ '.tar')
+            print("file already existing : ", elt_path+ '.tar', flush=True)
 
 def extracts_tar(path = './', remove_init_tar_folder = False, output_folder=None):
     """
