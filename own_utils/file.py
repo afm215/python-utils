@@ -98,12 +98,28 @@ def extracts_tar(path:str = './', remove_init_tar_folder = False, output_folder:
         for elt in os.listdir(dir_path):
             extracts_tar(dir_path + elt, remove_init_tar_folder, output_folder)
 
-def copy_file(src_path:str, dst:str):
+def copy(src_path:str, dst:str, use_rsync: bool =False, recursive = False, archive_mode=False):
     """
     Copy `src_path` to `dst`
+
+    INPUTS:
+    -------
+    - src_path
+    - dst
+    - use_rsync: if True will run rsync else , it uses cp
+    - recursive : performs recursive copy
+    - archive_mode : only with rsync ! use the -a option, not compative with recursive  = True
     """
     dst = format_prepath(dst)
-    cmd = "cp " + src_path + " " + dst
+    core = src_path + " " + dst
+    tool = "rsync " if use_rsync else "cp " 
+    if recursive:
+        assert archive_mode == False, "archive mode should not be uses with recursive = True"
+        tool += "-r "
+    if archive_mode:
+        assert use_rsync, "archive mode only available with rsync"
+        tool += "-a "
+    cmd = tool + core
     run(cmd, False)
 
 
