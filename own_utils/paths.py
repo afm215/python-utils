@@ -59,7 +59,13 @@ def only_dirs(list_: list):
     """
     return list(filter(os.path.isdir, list_))
 
-def get_relative_path(abs_path, dat_path):
+def get_relative_path(abs_path, data_path):
+    """
+    INPUT
+    -----
+    - abs_path: abs we want to extract the relative path from
+    - data_path abs path that we consider to be the root path
+    """
     splited_path = abs_path.split("/")
     for i in range(len(splited_path), 0, -1):
         if dat_path in "/".join(splited_path[:-i]):
