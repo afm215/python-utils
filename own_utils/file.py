@@ -60,13 +60,13 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
                 elt_parent_path = '/'.join(path_split[:-1])
                 elt_name = path_split[-1]
                 cmd = "tar -cf " + elt_path + ".tar "+ "-C "+ elt_parent_path + " " + elt_name
-                run(cmd, False)
+                run(cmd, False, False)
             else:
                 with tarfile.open(elt_path+ '.tar', "w") as tf:
                     arcname = elt_path.split('/')[-1]
                     tf.add(elt_path, arcname=arcname)
             if remove_init_folder:
-                run("rm -r "+ elt_path, False )                
+                run("rm -r "+ elt_path, False , False)                
         else:
             print("file already existing : ", elt_path+ '.tar', flush=True)
 
