@@ -34,7 +34,7 @@ def run(cmd: str, launch_cmd_using_sys_env = True, do_not_split = True, use_shel
 def convert_output_to_elts_list(output:str, split_on_linebreak=True, split_on_spaces=True, remove_header=True)->list:
     return_value = output
     if remove_header:
-        return_value = return_value[1:]
+        return_value = "\n".join(return_value.split('\n')[1:])
     if split_on_linebreak:
         return_value = return_value.split('\n')
     if split_on_spaces:
