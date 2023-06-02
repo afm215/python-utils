@@ -68,5 +68,5 @@ def get_relative_path(abs_path, data_path):
     """
     splited_path = abs_path.split("/")
     for i in range(len(splited_path), 0, -1):
-        if dat_path in "/".join(splited_path[:-i]):
+        if data_path in "/".join(splited_path[:-i]):
             return "/".join(splited_path[-i:])

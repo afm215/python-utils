@@ -2,11 +2,13 @@ import subprocess
 from . import basics
 COMMAND_OUTPUT_IN_STDERR = ["ssh", "bash"]
 
-def run(cmd: str, launch_cmd_using_sys_env = True)-> str:
+def run(cmd: str, launch_cmd_using_sys_env = True, do_not_split = True, use_shell=False)-> str:
     """
     Launch bash command and return the output
     INPUT: - cmd is the str of the command you want to launch, ex: "cd /home/test && ls -l"
            - launch_cmd_using_sys_env is a boolean. If set to True, the command will be launch with /etc/bashrc allowing to use the function defined in it
+           - do_not_split=if set to True, the command will be launch in a subprocess as is. If False, the command will be split on space char
+           - use shell, not recommended, do it if your command is a succession of bash commands
     """
     split_cmd = ''
 
@@ -14,8 +16,11 @@ def run(cmd: str, launch_cmd_using_sys_env = True)-> str:
         split_cmd = "source /etc/bashrc && " + cmd
         split_cmd = ['bash', '-c'] +  [split_cmd]
     else:
-        split_cmd = list(filter(lambda x: x != '', cmd.split(' ')))
-    cmd_return = subprocess.run(split_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if do_not_split:
+            split_cmd = [cmd]
+        else:
+            split_cmd = list(filter(lambda x: x != '', cmd.split(' ')))
+    cmd_return = subprocess.run(split_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=use_shell)
     std_out = cmd_return.stdout.decode('UTF-8')
     std_err = cmd_return.stderr.decode('UTF-8')
     if split_cmd[0] in COMMAND_OUTPUT_IN_STDERR:
