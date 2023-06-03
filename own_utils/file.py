@@ -120,7 +120,7 @@ def copy(src_path:str, dst:str, use_rsync: bool =False, recursive = False, archi
         assert use_rsync, "archive mode only available with rsync"
         tool += "-a "
     cmd = tool + core
-    run(cmd, False)
+    run(cmd, False, False)
 
 
         
