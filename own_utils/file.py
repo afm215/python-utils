@@ -54,10 +54,10 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
             except :
                 pass
             if(run_with_bash):
-                path_split = elt_path.split('/')
+                path_split =  list(filter(lambda elt: elt != "", elt_path.split('/')))
                 if path_split[-1] == '':
                     path_split =  path_split[:-1] # remove the empty elt that corresponds to the last '/'
-                elt_parent_path = '/'.join(path_split[:-1])
+                elt_parent_path = '/'.join(path_split[:-1]) if len(path_split) > 1 else "./"
                 elt_name = path_split[-1]
                 cmd = "tar -cf " + elt_path + ".tar "+ "-C "+ elt_parent_path + " " + elt_name
                 run(cmd, False, False)
