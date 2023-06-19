@@ -1,4 +1,5 @@
 import os 
+from .bash_command import run
 
 def flatten_paths_recursively(root_path, output_absolute_path=False, depth = None):
     """
@@ -58,6 +59,18 @@ def only_dirs(list_: list):
     Keep only paths of directories
     """
     return list(filter(os.path.isdir, list_))
+
+def list_only_dirs(folder_path: str):
+    ls_return = run ("ls -l " + folder_path +" | awk '{print $1, $NF}'", False, True, True )
+    elts_list = ls_return.split("\n")[1:-1] # get rid of the header and the last empty \n
+    dirs_list = [] 
+    for elt in elts_list:
+        if elt[0] == "d":
+            dirs_list.append(" ".join(elt.split(" ")[1:]))
+    return dirs_list
+    
+def list_only_file(folder_path: str):
+    raise NotImplementedError()
 
 def get_relative_path(abs_path, data_path):
     """
