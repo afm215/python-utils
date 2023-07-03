@@ -19,7 +19,7 @@ def flatten_paths_recursively(root_path, output_absolute_path=False, depth = Non
 
 def format_prepath(prepath: str) -> str:
     """
-    Check if the prepath exists, and if it is a folder. Than retunrn the prepath with / at the end whatever the input is.
+    Check if the prepath exists, and if it is a folder. Then retunrns the prepath with / at the end whatever the input is.
     """
     assert os.path.exists(prepath), "given prepath does'nt exist : " + prepath
     assert os.path.isdir(prepath), "given prepath is not a folder : " + prepath
@@ -61,16 +61,48 @@ def only_dirs(list_: list):
     return list(filter(os.path.isdir, list_))
 
 def list_only_dirs(folder_path: str):
-    ls_return = run ("ls -l " + folder_path +" | awk '{print $1, $NF}'", False, True, True )
-    elts_list = ls_return.split("\n")[1:-1] # get rid of the header and the last empty \n
+    folder_path = folder_path.replace(" ", "\ ")
+    ls_types = run ("ls -l " + folder_path +" | awk '{print $1}'", False, True, True ).split("\n")[1:-1] # get rid of the header and the last empty \n
+    ls_return = run ("ls " + folder_path, False, True, True ).split("\n")[:-1]
     dirs_list = [] 
-    for elt in elts_list:
-        if elt[0] == "d":
-            dirs_list.append(" ".join(elt.split(" ")[1:]))
+    for elt_name, elt_type in zip(ls_return, ls_types):
+        if elt_type[0] == "d":
+            dirs_list.append(elt_name)
     return dirs_list
     
 def list_only_file(folder_path: str):
     raise NotImplementedError()
+
+from .parallel import parallelized_function_on_list
+
+def parallel_flatten_paths_recursively(root_path: str) -> list:
+    """
+    use the non parallelize version , this one suffers some serious speed issues
+    """
+    print("warning, use use flatten_paths_recursively instead")
+    def list_child_content(path: str) -> list:
+        """
+        INPUT:
+        - path : absolute path toward the targeted element
+        OUPUT: 
+        - list of all the targett content absolute paths  
+        """
+        if os.path.isfile(path):
+            return [path]
+        content = os.listdir(path)
+        child_dirs = list_only_dirs(path)
+        child_files = list(filter(lambda elt : not elt in child_dirs, content))
+        returned_list = [os.path.join(path, elt) for elt in child_files]
+        for folder in child_dirs:
+            returned_list = list_child_content(os.path.join(path, folder)) + returned_list
+        return returned_list
+
+    paths_list = apply_prepath_on_list(os.listdir(root_path), root_path)
+    jobs_result = parallelized_function_on_list(lambda elt: list_child_content(elt), paths_list, n_jobs=8, pre_dispatch='all', require="sharedmem")
+    returned_list = []
+    for result in jobs_result:
+        returned_list += result
+    return returned_list 
 
 def get_relative_path(abs_path, data_path):
     """
