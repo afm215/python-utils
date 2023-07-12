@@ -4,6 +4,7 @@ from .paths import flatten_paths_recursively, format_prepath
 from .bash_command import run
 import os
 import time 
+import uuid
 
 def extract_file_lines_to_list(file_path:str, skip_blank_line=True):
     """
@@ -71,6 +72,7 @@ def compress_to_tar(target = './', file_tree_level=0,replace_existing = False, r
                 run("rm -r "+ elt_path, False , False)                
         else:
             print("file already existing : ", elt_path+ '.tar', flush=True)
+    print(flush=True)
 
 def extracts_tar(path:str = './', remove_init_tar_folder = False, output_folder:str=None):
     """
@@ -90,15 +92,70 @@ def extracts_tar(path:str = './', remove_init_tar_folder = False, output_folder:
             dir_path = output_folder
             os.makedirs(dir_path, exist_ok=True)
         if path[-3:] == 'tar' :
-            cmd = "tar -xf " + path + '-C' + dir_path
+            cmd = "tar -xf " + path + ' -C ' + dir_path
 
         elif path[-6:] == '.tar.gz':
-            cmd = "tar -xzf " + path + '-C' + dir_path
-        run(cmd, False)
+            cmd = "tar -xzf " + path + ' -C ' + dir_path
+        else:
+            return
+        try:
+            run(cmd, False, False)
+        except Exception as e:
+            print("error met with ", path, flush=True)
+            raise e
+        if remove_init_tar_folder:
+            run(f"rm {path}", False, False)
     else:
         dir_path = format_prepath(path)
         for elt in os.listdir(dir_path):
             extracts_tar(dir_path + elt, remove_init_tar_folder, output_folder)
+
+def add_sub_tar_to_tar(tar_path:str, output_tar:str, last_file:bool, buffer=None, remove_sub_tar=True):
+    if buffer is not None:
+        if buffer < 8920:
+            buffer = 8920
+    if tar_path[-4:] == ".tar":
+        assert output_tar[-4:] == ".tar", f"output_tar should have the same extension, found {tar_path} {output_tar}"
+        tar_end =b"\x00"
+        for i in range(8910):
+            tar_end+= b"\x00"
+        assert len(tar_end) == 8911
+        inter_str = b"\x00"
+        for i in range(206):
+            inter_str+=b"\x00"
+    else:
+        raise NotImplementedError(".tar files expected")
+
+    
+    tar_to_add = open(tar_path, "rb")
+    output = open(output_tar, "ab")
+    old_batch = tar_to_add.read(buffer)
+    batch = tar_to_add.read(buffer)
+    while len(batch) == buffer:
+        output.write(old_batch)
+        del old_batch
+        old_batch = batch
+        batch = tar_to_add.read(buffer)
+    last_content = old_batch + batch
+    assert last_content[-8911:] == tar_end, f"wrong end with {tar_path}"
+    if last_file:
+        pass
+    else:
+        last_content = last_content[-8911:] + inter_str
+
+    output.write(last_content)
+    output.close()
+    tar_to_add.close()
+    if remove_sub_tar:
+        run(f"rm {tar_path}", False, False)
+
+def concatenate_tar_list(tar_list, output_tar, buffer=None, remove_sub_tar = False):
+    for tar_path in tar_list[:-1]:
+        print(tar_path)
+        add_sub_tar_to_tar(tar_path, output_tar, False, buffer, remove_sub_tar)
+    print(tar_list[-1])
+    add_sub_tar_to_tar(tar_list[-1], output_tar, True, buffer, remove_sub_tar)
+
 
 def copy(src_path:str, dst:str, use_rsync: bool =False, recursive = False, archive_mode=False):
     """
@@ -123,6 +180,231 @@ def copy(src_path:str, dst:str, use_rsync: bool =False, recursive = False, archi
         tool += "-a "
     cmd = tool + core
     run(cmd, False, False)
+
+
+class MultiProcessCacheHandler():
+    ## Class to handle cache shared through several processes
+    def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False):
+        """
+        INPUT :
+        - cache_dir: path of the cache fodler
+        - cache_path : a symbolic link will be created within the current folder, and will be used by all processes
+        - process_id: if id is zero, the process will handle cache creation and deletion
+        - nb_process : nb of process sharing the same cache        
+        - save_dir : if not none, will be considered as a default save path for the cache (see add_folder_to_save)
+        - multithread_save : use multi process compress into tar of set to True 
+        """
+        self.leader = False
+        self.cache_dir = None
+        self.multithread_save = multithread_save
+        if cache_path[-1] == "/":
+            cache_path = cache_path[:-1]
+        self.cache_link= cache_path
+        self.folder_to_save= []
+        self.save_dir = None
+        self.root_renaming=None
+        if save_dir:
+            self.save_dir = format_prepath(save_dir)        
+        self.nb_process = nb_process
+        self.process_id = process_id
+        if process_id == 0:
+            self.leader = True
+            self.cache_dir = os.path.join(cache_dir,str(uuid.uuid4()))
+            os.makedirs(self.cache_dir)
+            assert not(os.path.exists(self.cache_link))
+            os.symlink(self.cache_dir, self.cache_link, target_is_directory= True)
+        while not(os.path.exists(self.cache_link)):
+            time.sleep(1)
+        self.cache_link = format_prepath(self.cache_link)
+    def add_folder_to_save(self, folder_path:str, dst_path:str=None):
+        """
+        Will save at save function call, the specified folder within the dst_path as a tar file
+        save_function will be call at deletion
+        INPUT:
+        - folder_path: relative or abs path toward the folder to be saved
+        - dst_path : destination folder
+        """
+        if not(self.leader):
+            return
+        if not(dst_path):
+            dst_path = self.save_dir if self.save_dir else "./"
+        cache_path_to_save = folder_path if folder_path[0] == "/" else os.path.join(self.cache_dir, folder_path)
+        for i,(cache_path, _) in enumerate(self.folder_to_save):
+            if cache_path in cache_path_to_save:
+                ## if cache_patrh_to_save is a child of the considered cach path 
+                self.folder_to_save = self.folder_to_save[:i] + [[cache_path_to_save, format_prepath(dst_path)]] + self.folder_to_save[i:]
+                return
+        self.folder_to_save.append([cache_path_to_save, format_prepath(dst_path)])
+
+    def save(self):
+        # show that the process is ready
+        if self.leader:
+            print("waiting for all cache handler to be ready", flush =True)
+        if not(self.leader) or not(self.multithread_save):
+            with open(os.path.join(self.cache_link, "READY_" + str(self.process_id)), "w"):
+                pass
+
+        if self.multithread_save:
+            if self.leader:
+                print("saving cache with multi process...", flush = True)
+                ## cheating
+                with open(os.path.join(self.cache_link, "folder_to_save"), "w")  as file_cheat:
+                    for (src_folder, dst_folder) in self.folder_to_save:
+                        file_cheat.write(src_folder + "$" + dst_folder+"\n")
+                with open(os.path.join(self.cache_link, "READY_" + str(self.process_id)), "w"):
+                    pass
+            while not(os.path.exists(os.path.join(self.cache_link, "folder_to_save"))) or len(list(filter(lambda elt : elt[:5] == "READY", os.listdir(self.cache_dir)))) != self.nb_process:
+                time.sleep(1)
+            if self.leader:
+                time.sleep(2)
+                run("rm {}".format(os.path.join(self.cache_dir, "READY_*")), False, True, True)
+            if not(self.leader):
+                file_content = extract_file_lines_to_list(os.path.join(self.cache_link, "folder_to_save"))
+                self.folder_to_save = [elt.split("$") for elt in file_content]
+            for (src_folder, dst_folder) in self.folder_to_save:
+                if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
+                        # TODO do not do this, pick all the file and create a new folder with the correct name !
+                        os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
+                        src_folder = os.path.join(self.cache_dir, self.root_renaming)
+                        run("mv {} {}".format(os.path.join(self.cache_dir, "*"), src_folder), False, True, True)
+                src_folder = src_folder[:-1] if src_folder[-1] == "/" else src_folder
+                tar_name  = src_folder + self.process_id + ".tar"
+                depth = 1
+                elts_to_compress = flatten_paths_recursively(src_folder, depth = depth)
+                while len(elts_to_compress) < self.nb_process:
+                    depth += 1 
+                    elts_to_compress = flatten_paths_recursively(src_folder, depth = depth)
+                length = len(elts_to_compress)
+                nb_elt_per_process = length // self.nb_process
+                if self.process_id == self.nb_process - 1:
+                    elts_to_compress = elts_to_compress[self.process_id * nb_elt_per_process:]
+                else:
+                    elts_to_compress = elts_to_compress[self.process_id * nb_elt_per_process: (self.process_id + 1) * nb_elt_per_process]
+                cmd  = "tar -cf " +tar_name +  " "+ "-C "+ os.path.dirname(src_folder) + " " + " ".join(elts_to_compress)
+                run(cmd, False, False)
+                with open(os.path.join(self.cache_link, "FINISH_" + str(self.process_id)), "w"):
+                    pass
+                final_tar_name =  src_folder+".tar"
+                if self.leader:
+                    while len(list(filter(lambda elt : elt[:7] == "FINISH_", os.listdir(self.cache_dir)))) != self.nb_process:
+                        time.sleep(1)
+                    with open(os.path.join(self.cache_link, "WAIT"), "w"):
+                        pass
+                    tars_to_concatenate = [src_folder + i + ".tar" for i in range(self.nb_process)]
+                    concatenate_tar_list(tars_to_concatenate, final_tar_name, buffer=int(1e9), remove_sub_tar = True)
+                    # if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
+                    #     # TODO do not do this, pick all the file and create a new folder with the correct name !
+                    #     os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
+                    #     rename_tar = os.path.join(os.path.dirname(final_tar_name), self.root_renaming+".tar")
+                    #     run("mv {} {}".format(final_tar_name, rename_tar), False, False)
+                    #     final_tar_name = rename_tar 
+                    run("mv {}  {}".format(final_tar_name, dst_folder), False, False) 
+                    run("rm {}".format(os.path.join(self.cache_dir, "WAIT")), False, True, True)
+                    time.sleep(2)
+                    # run("rm {}".format(os.path.join(self.cache_dir, "READY_*")), False, True, True)
+                else:
+                    while  not(os.path.exists(final_tar_name)):
+                        time.sleep(1)
+                    while os.path.exists(os.path.join(self.cache_link, "WAIT")):
+                        time.sleep(1)
+            return 
+        
+        if self.leader:
+            print("saving cache...", flush = True)
+            while len(list(filter(lambda elt : elt[:5] == "READY", os.listdir(self.cache_dir)))) != self.nb_process:
+                time.sleep(1)
+            run("rm {}".format(os.path.join(self.cache_dir, "READY_*")), False, True, True)
+            for (src_folder, dst_folder) in self.folder_to_save:
+                if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
+                        # TODO do not do this, pick all the file and create a new folder with the correct name !
+                        os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
+                        src_folder = os.path.join(self.cache_dir, self.root_renaming)
+                        run("mv {} {}".format(os.path.join(self.cache_dir, "*"), src_folder), False, True, True)
+                print("dealing with ", src_folder, " to ", dst_folder,flush=True)
+                print("current content size is ", len(os.listdir(src_folder)), flush=True)
+                src_folder = src_folder[:-1] if src_folder[-1] == "/" else src_folder
+                compress_to_tar(src_folder, replace_existing=True,remove_init_folder=True)
+                print("cache content ", run("ls -lthr " + self.cache_dir, False, False), flush=True)
+                # if self.save_dir and format_prepath(src_folder) == format_prepath(self.cache_link) :
+                #     new_name = os.path.join("/".join(src_folder.split("/") [:-1]), (self.save_dir[:-1] if self.save_dir[-1] == "/" else self.save_dir) + ".tar")
+                #     run("mv {}  {}".format(src_folder+".tar", new_name), False, False) 
+                #     tar_path = new_name
+                # else:
+                tar_path = src_folder + ".tar"
+                # if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
+                #     rename_tar = os.path.join(os.path.dirname(tar_path), self.root_renaming+".tar")
+                #     run("mv {} {}".format(tar_path, rename_tar), False, False)
+                #     tar_path = rename_tar 
+                print("tar path is ", tar_path, flush=True)
+                run("mv {} {}".format(tar_path, dst_folder), False, False) 
+            print("cache saved")
+
+
+    
+    def move_and_extract_folder(self, src_path:str, copy:bool =True, extract_at_root:bool=True):
+        """
+        Will move the specifier folder/file to the cache. If the path points to a tar file, the tar file will be extracted within the cache 
+        INPUT:
+        - src_path: path toward a folder or a tar file 
+        - copy: if set to False, the folder will be moved
+        - extract_at_root: if set to True will move the extracted tar content to the root
+        Returns the resulting folder path
+        """
+        if not(src_path [-4:] == ".tar"):
+            src_path = format_prepath(src_path)[:-1]
+        if self.leader:
+            resulting_folder_path= os.path.join( self.cache_dir,src_path.split("/")[-1].split(".tar")[0] )
+        else:
+            resulting_folder_path= os.path.join( self.cache_link,src_path.split("/")[-1].split(".tar")[0] )
+
+        holder_path = os.path.join(self.cache_link, "HOLD")
+        error_file = os.path.join(self.cache_link, "ERROR")
+        if not(self.leader):
+            while not( os.path.exists(resulting_folder_path)) or os.path.exists(holder_path):
+                time.sleep(5)
+                if os.path.exists(error_file):
+                    raise Exception("error met in the leader")
+            if os.path.exists(error_file):
+                raise Exception("error met in the leader")
+            return self.cache_link if extract_at_root else resulting_folder_path   
+        try:
+            if(os.path.exists(error_file)):
+                print("old error file detected ", flush = True)
+                run(f"rm {error_file}", False, False)
+            with open(holder_path, "w"):
+                pass
+            if copy:
+                run("rsync -ah --progress {}  {}".format(src_path, self.cache_dir), False, False)        
+            else:
+                run("mv {}  {}".format(src_path, self.cache_dir), False, False)
+            if src_path[-4:] == ".tar":
+                tar_name  = os.path.basename(src_path)
+                print("extracting ", os.path.join(self.cache_dir, tar_name), flush = True)
+                extracts_tar(os.path.join(self.cache_dir, tar_name), remove_init_tar_folder=True)
+                print("content is then ", run("ls " + self.cache_dir , False, False), flush=True)
+                if extract_at_root:
+                    assert not(self.root_renaming), "more than one extraction at root level"
+                    self.root_renaming = os.path.basename(resulting_folder_path)
+                    print("extracting  at root", flush =True)
+                    run("mv {} {}".format(os.path.join(resulting_folder_path, "*"), self.cache_dir), False, True, True)
+                    run("rm -d {}".format(resulting_folder_path), False, False)
+            run("rm {}".format(holder_path), False, False)
+            return self.cache_dir if extract_at_root else resulting_folder_path
+        except Exception as e:
+            with open (error_file, "w"):
+                pass
+            raise e
+        
+
+
+    def __del__(self):
+        if self.leader:
+            print("saving folder to be saved")
+        self.save()
+        if self.leader:
+            print("deleating cache")
+            run("rm -rf {}".format(os.path.normcase(self.cache_dir)), False, False)
+            run("rm {}".format(os.path.normcase(self.cache_link)), False, False)
 
 
         
