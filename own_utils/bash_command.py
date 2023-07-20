@@ -26,16 +26,20 @@ def run(cmd: str, launch_cmd_using_sys_env = True, do_not_split = True, use_shel
         std_out = cmd_return.stdout.decode('UTF-8')
         std_err = cmd_return.stderr.decode('UTF-8')
     else:
-        p = subprocess.Popen(split_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=use_shell)
-        std_out=''
-        std_err=''
-        while True:
-            line_err=p.stderr.readline().decode('UTF-8')
-            line_std = p.stdout.readline().decode('UTF-8')
-            if not line_std and not line_std:
-                break
-            std_out+=line_std
-            std_err+= line_err
+        # p = subprocess.Popen(split_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=use_shell)
+        # std_out=''
+        # std_err=''
+        # while True:
+        #     line_err=p.stderr.readline().decode('UTF-8')
+        #     line_std = p.stdout.readline().decode('UTF-8')
+        #     if not line_std and not line_std:
+        #         break
+        #     std_out+=line_std
+        #     std_err+= line_err
+        # some weird stuff happens with the above version
+        cmd_return = subprocess.run(split_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=use_shell)
+        std_out = cmd_return.stdout.decode('UTF-8')
+        std_err = cmd_return.stderr.decode('UTF-8')
     if split_cmd[0] in COMMAND_OUTPUT_IN_STDERR:
         return std_err
     else:

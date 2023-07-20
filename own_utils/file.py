@@ -204,7 +204,7 @@ class MultiProcessCacheHandler():
         self.save_dir = None
         self.root_renaming=None
         if save_dir:
-            self.save_dir = format_prepath(save_dir)        
+            self.save_dir = os.path.normcase(save_dir) +"/"        
         self.nb_process = nb_process
         self.process_id = process_id
         if process_id == 0:
@@ -261,8 +261,16 @@ class MultiProcessCacheHandler():
             if not(self.leader):
                 file_content = extract_file_lines_to_list(os.path.join(self.cache_link, "folder_to_save"))
                 self.folder_to_save = [elt.split("$") for elt in file_content]
+                self.cache_dir = os.readlink(self.cache_link)
             for (src_folder, dst_folder) in self.folder_to_save:
+                try:
+                    os.remove(os.path.join(src_folder, "UNHOLDFOLDEREXTRACTION"))
+                except Exception:
+                    pass
                 if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
+                        os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
+                        src_folder = os.path.join(self.cache_dir, self.root_renaming)
+                        run("mv {} {}".format(os.path.join(self.cache_dir, "*"), src_folder), False, True, True)
                         # TODO do not do this, pick all the file and create a new folder with the correct name !
                         os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
                         src_folder = os.path.join(self.cache_dir, self.root_renaming)
@@ -315,16 +323,23 @@ class MultiProcessCacheHandler():
                 time.sleep(1)
             run("rm {}".format(os.path.join(self.cache_dir, "READY_*")), False, True, True)
             for (src_folder, dst_folder) in self.folder_to_save:
-                if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
+                print("dealing with ", src_folder, " to ", dst_folder,flush=True)
+                os.remove(os.path.join(src_folder, "UNHOLDFOLDEREXTRACTION"))
+                if os.path.normpath(src_folder) == os.path.normpath(self.cache_dir):
+                        print("dealing with root folder", flush=True)
                         # TODO do not do this, pick all the file and create a new folder with the correct name !
                         os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
                         src_folder = os.path.join(self.cache_dir, self.root_renaming)
-                        run("mv {} {}".format(os.path.join(self.cache_dir, "*"), src_folder), False, True, True)
-                print("dealing with ", src_folder, " to ", dst_folder,flush=True)
+                        print("dealing with ", src_folder, " to ", dst_folder,flush=True)
+                        print("mv {} {}".format(os.path.join(self.cache_dir, "*"), src_folder), flush=True)
+                        try:
+                            run("mv {} {}".format(os.path.join(self.cache_dir, "*"), src_folder), False, True, True)
+                        except Exception as e:
+                            print(e)
                 print("current content size is ", len(os.listdir(src_folder)), flush=True)
                 src_folder = src_folder[:-1] if src_folder[-1] == "/" else src_folder
                 compress_to_tar(src_folder, replace_existing=True,remove_init_folder=True)
-                print("cache content ", run("ls -lthr " + self.cache_dir, False, False), flush=True)
+                print("cache content ", run("ls -lthr " + self.cache_dir + " | wc -l", False, True, True), flush=True)
                 # if self.save_dir and format_prepath(src_folder) == format_prepath(self.cache_link) :
                 #     new_name = os.path.join("/".join(src_folder.split("/") [:-1]), (self.save_dir[:-1] if self.save_dir[-1] == "/" else self.save_dir) + ".tar")
                 #     run("mv {}  {}".format(src_folder+".tar", new_name), False, False) 
@@ -336,7 +351,7 @@ class MultiProcessCacheHandler():
                 #     run("mv {} {}".format(tar_path, rename_tar), False, False)
                 #     tar_path = rename_tar 
                 print("tar path is ", tar_path, flush=True)
-                run("mv {} {}".format(tar_path, dst_folder), False, False) 
+                run("mv {} {}".format(tar_path, dst_folder), False, True, True) 
             print("cache saved")
 
 
@@ -357,10 +372,13 @@ class MultiProcessCacheHandler():
         else:
             resulting_folder_path= os.path.join( self.cache_link,src_path.split("/")[-1].split(".tar")[0] )
 
-        holder_path = os.path.join(self.cache_link, "HOLD")
+        unholder_path = os.path.join(self.cache_link, "UNHOLDFOLDEREXTRACTION")
         error_file = os.path.join(self.cache_link, "ERROR")
         if not(self.leader):
-            while not( os.path.exists(resulting_folder_path)) or os.path.exists(holder_path):
+            if extract_at_root:
+                assert not(self.root_renaming), "more than one extraction at root level"
+                self.root_renaming = os.path.basename(resulting_folder_path)
+            while not(os.path.exists(unholder_path)):
                 time.sleep(5)
                 if os.path.exists(error_file):
                     raise Exception("error met in the leader")
@@ -371,8 +389,6 @@ class MultiProcessCacheHandler():
             if(os.path.exists(error_file)):
                 print("old error file detected ", flush = True)
                 run(f"rm {error_file}", False, False)
-            with open(holder_path, "w"):
-                pass
             if copy:
                 run("rsync -ah --progress {}  {}".format(src_path, self.cache_dir), False, False)        
             else:
@@ -382,13 +398,17 @@ class MultiProcessCacheHandler():
                 print("extracting ", os.path.join(self.cache_dir, tar_name), flush = True)
                 extracts_tar(os.path.join(self.cache_dir, tar_name), remove_init_tar_folder=True)
                 print("content is then ", run("ls " + self.cache_dir , False, False), flush=True)
-                if extract_at_root:
-                    assert not(self.root_renaming), "more than one extraction at root level"
-                    self.root_renaming = os.path.basename(resulting_folder_path)
-                    print("extracting  at root", flush =True)
+            if extract_at_root:
+                assert not(self.root_renaming), "more than one extraction at root level"
+                self.root_renaming = os.path.basename(resulting_folder_path)
+                print("extracting  at root", flush =True)
+                if len(os.listdir(resulting_folder_path)) > 0:
                     run("mv {} {}".format(os.path.join(resulting_folder_path, "*"), self.cache_dir), False, True, True)
-                    run("rm -d {}".format(resulting_folder_path), False, False)
-            run("rm {}".format(holder_path), False, False)
+                else:
+                    print(f"warning {src_path} is empty", flush=True)
+                run("rm -d {}".format(resulting_folder_path), False, False)
+            with open(unholder_path, "w"):
+                pass
             return self.cache_dir if extract_at_root else resulting_folder_path
         except Exception as e:
             with open (error_file, "w"):
@@ -399,12 +419,19 @@ class MultiProcessCacheHandler():
 
     def __del__(self):
         if self.leader:
-            print("saving folder to be saved")
+            print("saving folder to be saved", flush=True)
         self.save()
+        
         if self.leader:
-            print("deleating cache")
-            run("rm -rf {}".format(os.path.normcase(self.cache_dir)), False, False)
-            run("rm {}".format(os.path.normcase(self.cache_link)), False, False)
+            print("deleating cache", flush=True)
+            run("rm -rf {}".format(os.path.normcase(self.cache_dir)), False, True, True)
+            print("deleting syminlk", flush=True)
+            run("rm {}".format(os.path.normcase(self.cache_link)[:-1]), False, True, True)
+            assert not(os.path.exists(os.path.normcase(self.cache_dir)))
+            time.sleep(2)
+        else:
+            while os.path.exists(self.cache_link):
+                time.sleep(1)
 
 
         
