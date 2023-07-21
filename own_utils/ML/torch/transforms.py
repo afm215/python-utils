@@ -3,6 +3,9 @@ from torch import nn
 import numpy as np 
 from torchvision.transforms.functional import rotate
 import torch.nn.functional as F
+from torchvision.transforms.functional import resize
+from PIL import Image
+
 def get_gaussian_kernel1d(kernel_size: int, sigma: float):
    # extracted from torchvision.transforms.functional_tensor 
     ksize_half = (kernel_size - 1) * 0.5
@@ -52,11 +55,11 @@ class GaussianRandomAnysotropicBlur(nn.Module):
     def __init__(self, kernel_size=(9,9), sigma_x:list= [0.1,2.0], sigma_y=[0.1,0.15]) -> None:
       super().__init__()
       self.sigma_x = sigma_x
-      self.sigma_max= sigma_y
+      self.sigma_y= sigma_y
       self.kernel_size=kernel_size
     def forward(self, img: torch.Tensor):
-        sigmay = np.random.rand() * np.max(self.sigma_y) + np.min(self.sigma_y)
-        sigmax = np.random.rand() * np.max(self.sigma_x) + np.min(self.sigma_x)
+        sigmay = np.random.rand() *( np.max(self.sigma_y) -  np.min(self.sigma_y)) + np.min(self.sigma_y)
+        sigmax = np.random.rand() * (np.max(self.sigma_x) - np.min(self.sigma_x)) + np.min(self.sigma_x)
         kernel = get_gaussian_kernel2d(self.kernel_size, [sigmax, sigmay], dtype=img.dtype, device = img.device)
         theta = np.random.rand() * 360
         rotated_kernel = rotate(kernel[None, :], theta)[0]
@@ -76,7 +79,22 @@ class GaussianNoise(torch.nn.Module):
         self.noise_mean = mean
         self.noise_std = std
     def forward(self, img: torch.Tensor):
-        noise = torch.Tensor(np.random.normal(self.noise_mean, self.noise_std,img.size()), device=img.device, dtype=img.dtype)
+        noise = torch.tensor(np.random.normal(self.noise_mean, self.noise_std,img.size()), device=img.device, dtype=img.dtype)
         return img + noise
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(mean={self.noise_mean}, std={self.noise_std})"   
+    
+class RandomDownUpsampling(torch.nn.Module):
+    def __init__(self, max_down_sample_ratio: float):
+        super().__init__()
+        assert max_down_sample_ratio > 1, "max_down_sample_ratio should be greater than one"
+        self.max_down_sample_ratio = max_down_sample_ratio
+    def forward(self, img: torch.Tensor):
+        if isinstance(img, Image.Image):
+            input_size = img.size
+        else:
+            input_size = (img.size()[-2], img.size()[-1])
+        down_sample_ratio = np.random.rand() * (self.max_down_sample_ratio - 1) + 1
+        target_size = (int(input_size[0] / down_sample_ratio), int(input_size[1] / down_sample_ratio))
+        return resize(resize(img, target_size, antialias=True), input_size, antialias=True)
+        
