@@ -356,7 +356,7 @@ class MultiProcessCacheHandler():
 
 
     
-    def move_and_extract_folder(self, src_path:str, copy:bool =True, extract_at_root:bool=True):
+    def move_and_extract_folder(self, src_path:str, dest_relative_path = "", copy:bool =True, extract_at_root:bool=True, is_file=False):
         """
         Will move the specifier folder/file to the cache. If the path points to a tar file, the tar file will be extracted within the cache 
         INPUT:
@@ -365,7 +365,7 @@ class MultiProcessCacheHandler():
         - extract_at_root: if set to True will move the extracted tar content to the root
         Returns the resulting folder path
         """
-        if not(src_path [-4:] == ".tar"):
+        if not(src_path [-4:] == ".tar") and not(is_file):
             src_path = format_prepath(src_path)[:-1]
         if self.leader:
             resulting_folder_path= os.path.join( self.cache_dir,src_path.split("/")[-1].split(".tar")[0] )
@@ -389,16 +389,19 @@ class MultiProcessCacheHandler():
             if(os.path.exists(error_file)):
                 print("old error file detected ", flush = True)
                 run(f"rm {error_file}", False, False)
+            dest_path = os.path.join(self.cache_dir, dest_relative_path)
+            os.makedirs(dest_path, exist_ok=True)
             if copy:
-                run("rsync -ah --progress {}  {}".format(src_path, self.cache_dir), False, False)        
+                run("rsync -ah --progress {}  {}".format(src_path, dest_path), False, False)        
             else:
-                run("mv {}  {}".format(src_path, self.cache_dir), False, False)
+                run("mv {}  {}".format(src_path,  os.path.join(self.cache_dir, dest_path)), False, False)
             if src_path[-4:] == ".tar":
                 tar_name  = os.path.basename(src_path)
-                print("extracting ", os.path.join(self.cache_dir, tar_name), flush = True)
-                extracts_tar(os.path.join(self.cache_dir, tar_name), remove_init_tar_folder=True)
-                print("content is then ", run("ls " + self.cache_dir , False, False), flush=True)
+                print("extracting ", os.path.join(dest_path, tar_name), flush = True)
+                extracts_tar(os.path.join(dest_path, tar_name), remove_init_tar_folder=True)
+                print("content is then ", run("ls " + dest_path , False, False), flush=True)
             if extract_at_root:
+                assert os.path.isdir(resulting_folder_path), f"{src_path} is not a folder"
                 assert not(self.root_renaming), "more than one extraction at root level"
                 self.root_renaming = os.path.basename(resulting_folder_path)
                 print("extracting  at root", flush =True)

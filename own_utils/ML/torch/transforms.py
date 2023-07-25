@@ -65,7 +65,7 @@ class GaussianRandomAnysotropicBlur(nn.Module):
         rotated_kernel = rotate(kernel[None, :], theta)[0]
         return F.conv2d(img, rotated_kernel.repeat(img.shape[-3],1, 1,1), padding='same', groups=img.shape[-3])
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(kernel_size={self.kernel_size},stdmin={self.sigma_min}, std_max={self.sigma_max})" 
+        return f"{self.__class__.__name__}(kernel_size={self.kernel_size},sigma_x={self.sigma_x}, sigma_y={self.sigma_y})" 
 
 class GaussianNoise(torch.nn.Module):
     """
