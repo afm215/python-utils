@@ -1,10 +1,12 @@
 import torch
 from torch import nn
 import numpy as np 
+from torchvision import transforms
 from torchvision.transforms.functional import rotate
 import torch.nn.functional as F
 from torchvision.transforms.functional import resize
 from PIL import Image
+from ...Image.type_checker import is_pil_image
 
 def get_gaussian_kernel1d(kernel_size: int, sigma: float):
    # extracted from torchvision.transforms.functional_tensor 
@@ -97,4 +99,20 @@ class RandomDownUpsampling(torch.nn.Module):
         down_sample_ratio = np.random.rand() * (self.max_down_sample_ratio - 1) + 1
         target_size = (int(input_size[0] / down_sample_ratio), int(input_size[1] / down_sample_ratio))
         return resize(resize(img, target_size, antialias=True), input_size, antialias=True)
+
+def debugging_transform_list(img, transform):
+  import copy
+  """
+  Apply each transform of a transform Compose variable and store the result as a PIL Image in a list
+  """
+  returned_list = []
+  altered_img  = copy.deepcopy( img)
+  for trs in transform.transforms:
+    altered_img = trs(altered_img)
+    if is_pil_image(altered_img):
+      returned_list.append((str(trs), (altered_img)))
+    else:
+      assert not(np.isnan(altered_img.cpu().numpy()).any())
+      returned_list.append((str(trs), transforms.ToPILImage()(altered_img)))
+  return returned_list
         
