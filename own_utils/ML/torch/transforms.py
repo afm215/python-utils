@@ -56,14 +56,14 @@ class GaussianRandomAnysotropicBlur(nn.Module):
     """
     def __init__(self, kernel_size=(9,9), sigma_x:list= [0.1,2.0], sigma_y=[0.1,0.15]) -> None:
       super().__init__()
-      self.sigma_x = sigma_x
-      self.sigma_y= sigma_y
+      self.sigma_x = (np.min(sigma_x), np.max(sigma_x))
+      self.sigma_y=(np.min(sigma_y),  np.max(sigma_y))
       self.kernel_size=kernel_size
     def forward(self, img: torch.Tensor):
-        sigmay = np.random.rand() *( np.max(self.sigma_y) -  np.min(self.sigma_y)) + np.min(self.sigma_y)
-        sigmax = np.random.rand() * (np.max(self.sigma_x) - np.min(self.sigma_x)) + np.min(self.sigma_x)
+        sigmay = np.random.uniform(self.sigma_y[0], self.sigma_y[1])
+        sigmax = np.random.uniform(self.sigma_x[0], self.sigma_x[1])
         kernel = get_gaussian_kernel2d(self.kernel_size, [sigmax, sigmay], dtype=img.dtype, device = img.device)
-        theta = np.random.rand() * 360
+        theta = np.random.uniform(0,360)
         rotated_kernel = rotate(kernel[None, :], theta)[0]
         return F.conv2d(img, rotated_kernel.repeat(img.shape[-3],1, 1,1), padding='same', groups=img.shape[-3])
     def __repr__(self) -> str:
@@ -75,16 +75,43 @@ class GaussianNoise(torch.nn.Module):
     INPUT:
     mean: float
     std: float
+    cliping_values = (min_value, max_value) : will clip the tensor with the provided values. Set to None if you want to skip clipping
     """
-    def __init__(self, mean:float =0, std:float=0.4) -> None:
+    def __init__(self, mean:float =0, std:float=0.2, cliping_values: 'tuple[float, float]' = None) -> None:
         super().__init__()
         self.noise_mean = mean
         self.noise_std = std
+        self.cliping_values = cliping_values
     def forward(self, img: torch.Tensor):
         noise = torch.tensor(np.random.normal(self.noise_mean, self.noise_std,img.size()), device=img.device, dtype=img.dtype)
+        if self.cliping_values:
+           return torch.clip(img + noise, self.cliping_values[0], self.cliping_values[1])
         return img + noise
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(mean={self.noise_mean}, std={self.noise_std})"   
+        return f"{self.__class__.__name__}(mean={self.noise_mean}, std={self.noise_std})"
+
+class RandomGaussianNoise(torch.nn.Module):
+    """
+    Apply Gaussian Noise whose mean and std are randomly sampled between the provided bounds
+    INPUT:
+    mean: tuple[float, float] = min_mean, max_mean
+    std: tuple[float, float] = min_std, max_std
+    cliping_values = (min_value, max_value) : will clip the tensor with the provided values. Set to None if you want to skip clipping
+    """
+    def __init__(self, mean_bounds:'tuple[float, float]' =(0,0), std_bounds:'tuple[float, float]'=[0.03, 0.2], cliping_values: 'tuple[float, float]' = None) -> None:
+        super().__init__()
+        self.noise_mean = (np.min(mean_bounds), np.max(mean_bounds))
+        self.noise_std = (np.min(std_bounds), np.max(std_bounds))
+        self.cliping_values = cliping_values
+    def forward(self, img: torch.Tensor):
+        noise_mean = np.random.uniform(self.noise_mean[0], self.noise_mean[1])
+        noise_std = np.random.uniform(self.noise_std[0], self.noise_std[1])
+        noise = torch.tensor(np.random.normal(noise_mean, noise_std,img.size()), device=img.device, dtype=img.dtype)
+        if self.cliping_values:
+           return torch.clip(img + noise, self.cliping_values[0], self.cliping_values[1])
+        return img + noise
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(mean={self.noise_mean}, std={self.noise_std})"      
     
 class RandomDownUpsampling(torch.nn.Module):
     def __init__(self, max_down_sample_ratio: float):
@@ -96,7 +123,7 @@ class RandomDownUpsampling(torch.nn.Module):
             input_size = img.size
         else:
             input_size = (img.size()[-2], img.size()[-1])
-        down_sample_ratio = np.random.rand() * (self.max_down_sample_ratio - 1) + 1
+        down_sample_ratio = np.random.uniform(1, self.max_down_sample_ratio)
         target_size = (int(input_size[0] / down_sample_ratio), int(input_size[1] / down_sample_ratio))
         return resize(resize(img, target_size, antialias=True), input_size, antialias=True)
 
@@ -112,7 +139,10 @@ def debugging_transform_list(img, transform):
     if is_pil_image(altered_img):
       returned_list.append((str(trs), (altered_img)))
     else:
-      assert not(np.isnan(altered_img.cpu().numpy()).any())
+      if np.isnan(altered_img.cpu().numpy()).any():
+         print(f"{str(trs)} is nan with the following values {np.unique(altered_img.cpu().numpy(), return_counts=True)}", flush = True)
+         if len(returned_list) > 0:
+            print(f"previous transform is {returned_list[-1][0]} with the following values : {np.unique(np.asarray(returned_list[-1][1]), return_counts=True)}")
       returned_list.append((str(trs), transforms.ToPILImage()(altered_img)))
   return returned_list
         
