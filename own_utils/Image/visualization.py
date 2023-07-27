@@ -1,6 +1,29 @@
 import numpy as np 
 from PIL import Image
 
+import matplotlib as plt 
+
+def draw_boxes(img, boxes):
+    """
+    Display img and draw the boxes on it
+    """
+    # load the image
+    data = img
+    # plot the image
+    plt.imshow(data)
+    # get the context for drawing boxes
+    ax = plt.gca()
+    # plot each box
+    for result in boxes:
+        # get coordinates
+        x, y, width, height = result
+        # create the shape
+        rect = plt.Rectangle((x, y), width, height, fill=False, color='orange')
+        # draw the box
+        ax.add_patch(rect)
+    # show the plot
+    plt.show()
+
 def make_masked_picture_red(picture: np.ndarray, mask: np.ndarray)->np.ndarray:
     """
     Output a the input picture such that active pixels of mask are red in the output
@@ -30,7 +53,6 @@ def visualize_imgs_list_as_grid(list_:'list[Image.Image] | list[tuple[str, Image
   """
     Plot the list_ in matpltolib. list_ can be a lust of PIL Image or a liste of tuples  key(i.e. an image title) / Image  
   """
-  import matplotlib.pyplot as plt
   def get_squared_dim_couple(length):
     squared_rounded_l = int(np.round(np.sqrt(length)))
     if length % squared_rounded_l == 0:
