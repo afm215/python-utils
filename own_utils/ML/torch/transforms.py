@@ -126,6 +126,16 @@ class RandomDownUpsampling(torch.nn.Module):
         down_sample_ratio = np.random.uniform(1, self.max_down_sample_ratio)
         target_size = (int(input_size[0] / down_sample_ratio), int(input_size[1] / down_sample_ratio))
         return resize(resize(img, target_size, antialias=True), input_size, antialias=True)
+    
+class ToPILImageWrapper(torch.nn.Module):
+    ## Same as ToPILImage, except doesn't raise an error when dealing with a PIL Image
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.ToPil = transforms.ToPILImage(*args, **kwargs)
+    def forward(self, img: torch.Tensor):
+        if isinstance(img, Image.Image):
+            return img
+        return self.ToPil(img)
 
 def debugging_transform_list(img, transform):
   import copy
