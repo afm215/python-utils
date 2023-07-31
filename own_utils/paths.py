@@ -1,9 +1,14 @@
 import os 
 from .bash_command import run
 
-def flatten_paths_recursively(root_path, output_absolute_path=False, depth = None):
+def flatten_paths_recursively(root_path:str, output_absolute_path:bool=False, depth: "int|None" = None, exclusion_list:'list[str]' = []):
     """
     return the list of the paths of all the file contained in root_path
+    INPUT:
+    - root_path
+    - output_absolute_path : if set to True, will store the absolute path
+    - depth : if not None will stop the elts search at the given step
+    - exclusion_list : will ignore the files whose name repsect the regexp stored
     """
     result = []
     if os.path.isfile(root_path) or(not(depth is None) and depth == 0 ):
