@@ -1,4 +1,5 @@
 from enum import Enum
+import time
 class _SortMode(Enum):
     DEFAULT=0
     INDEX = 1 
@@ -14,7 +15,7 @@ class OrderedList:
         if elt_sort_value > new_elt_sort_value:
             return [new_elt] + list_
         if len(list_) == 1:
-            return [elt, new_elt_sort_value]
+            return [elt, new_elt]
 
         half_list_length = len(list_) // 2
         splited_list_1, splited_list_2 = list_[:half_list_length], list_[half_list_length:]
@@ -25,18 +26,31 @@ class OrderedList:
         return splited_list_1 + self._dichotomy_insert(splited_list_2, new_elt, new_elt_sort_value)
 
     
-    def append(self, new_elt):
+    def append(self, new_elt, verbose=0):
         new_elt_sort_value = new_elt if self.sort_mode == _SortMode.DEFAULT else new_elt[self.sort_on]
+        if verbose > 0:
+            begin = time.perf_counter()
         if self.insert_mode == "dichotomy":
+            if verbose > 0:
+                print("using dichotomy", flush=True)
             self.list_ = self._dichotomy_insert(self.list_, new_elt, new_elt_sort_value)
+            if verbose > 0:
+                end = time.perf_counter()
+                print("list insertion done in ", end - begin , flush=True)
             return
 
         for i, elt in enumerate(self.list_):
             elt_sort_value = elt if self.sort_mode == _SortMode.DEFAULT else elt[self.sort_on]   
             if new_elt_sort_value< elt_sort_value:
                 self.list_.insert(i, new_elt) 
+                if verbose > 0:
+                    end = time.perf_counter()
+                    print("list insertion done in ", end - begin , flush=True)
                 return
         self.list_.append(new_elt)
+        if verbose > 0:
+            end = time.perf_counter()
+            print("list insertion done in ", end - begin , flush=True)
         return
 
 
@@ -66,8 +80,13 @@ class OrderedList:
           self.current_index += 1
           return self.list_[self.current_index - 1] 
       else:
+          self.current_index = 0
           raise StopIteration
     def __getitem__(self, index):
+        if isinstance(index, slice):
+            returned_value = OrderedList()
+            returned_value.list_ = self.list_[index]
+            return returned_value
         return self.list_[index]
 
     def __str__(self) -> str:

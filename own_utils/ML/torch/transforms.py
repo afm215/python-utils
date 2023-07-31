@@ -128,7 +128,9 @@ class RandomDownUpsampling(torch.nn.Module):
         return resize(resize(img, target_size, antialias=True), input_size, antialias=True)
     
 class ToPILImageWrapper(torch.nn.Module):
-    ## Same as ToPILImage, except doesn't raise an error when dealing with a PIL Image
+    """
+    Same as ToPILImage, except doesn't raise an error when dealing with a PIL Image
+    """
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.ToPil = transforms.ToPILImage(*args, **kwargs)

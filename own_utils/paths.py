@@ -116,6 +116,7 @@ def get_relative_path(abs_path, data_path):
     - abs_path: abs we want to extract the relative path from
     - data_path abs path that we consider to be the root path
     """
+    data_path = os.path.normpath(abs_path)
     splited_path = abs_path.split("/")
     for i in range(len(splited_path), 0, -1):
         if data_path in "/".join(splited_path[:-i]):
