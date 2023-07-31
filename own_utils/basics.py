@@ -79,7 +79,44 @@ def format_number(input, max_int_length = None,max_decimal_length = None):
         return str(output) + " + 1e" + str(ten_power +1 - max_int_length)
     return output
 
+class Irange:
+    # heavily inspired from https://codereview.stackexchange.com/questions/17543/iterator-and-generator-versions-of-pythons-range
+    """
+    Create an iterator that takes exaclty the same properties as range on initialization.
+    Alterantiveto the range function. This class behaves as an Iterator whereas range generates a sequence
+    """
+    def __init__(self, start_element, end_element=None, step=1):
+        if step == 0:
+            raise ValueError('Irange() step argument must not be zero')
+        if((type(start_element) is str) or (type(end_element) is str) 
+        or (type(step) is str)):
+            raise TypeError('Irange() integer expected, got str')
 
+        self.start_element = start_element
+        self.end_element = end_element
+        self.step = step
+        self.fetch_start_elt = True
+
+        if end_element is None:
+            self.start_element = 0
+            self.end_element = start_element
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.fetch_start_elt:
+            self.item = self.start_element
+            self.fetch_start_elt = False
+        else:
+            self.item = self.item + self.step
+        if self.step > 0:
+            if self.item >= self.end_element:
+                raise StopIteration
+        elif self.step < 0:
+            if self.item <= self.end_element:
+                raise StopIteration
+        return self.item
 
 
 def cpu_full_afinity():
