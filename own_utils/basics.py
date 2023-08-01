@@ -78,7 +78,6 @@ def format_number(input, max_int_length = None,max_decimal_length = None):
             return ("{:." + str(max_decimal_length) + "f}").format(output) + " + 1e" + str(ten_power +1 - max_int_length)
         return str(output) + " + 1e" + str(ten_power +1 - max_int_length)
     return output
-
 class Irange:
     # heavily inspired from https://codereview.stackexchange.com/questions/17543/iterator-and-generator-versions-of-pythons-range
     """
@@ -100,10 +99,11 @@ class Irange:
         if end_element is None:
             self.start_element = 0
             self.end_element = start_element
-
+        self.length = (self.end_element - self.start_element) // self.step
     def __iter__(self):
         return self
-
+    def __len__(self)-> int:
+        return self.length
     def __next__(self):
         if self.fetch_start_elt:
             self.item = self.start_element
