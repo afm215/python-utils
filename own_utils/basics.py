@@ -90,34 +90,29 @@ class Irange:
         if((type(start_element) is str) or (type(end_element) is str) 
         or (type(step) is str)):
             raise TypeError('Irange() integer expected, got str')
-
         self.start_element = start_element
+        self.item = start_element
         self.end_element = end_element
         self.step = step
-        self.fetch_start_elt = True
 
         if end_element is None:
             self.start_element = 0
+            self.item = 0
             self.end_element = start_element
-        self.length = (self.end_element - self.start_element) // self.step
     def __iter__(self):
         return self
     def __len__(self)-> int:
-        return self.length
+        return (self.end_element - self.start_element) // self.step
     def __next__(self):
-        if self.fetch_start_elt:
-            self.item = self.start_element
-            self.fetch_start_elt = False
-        else:
-            self.item = self.item + self.step
         if self.step > 0:
             if self.item >= self.end_element:
                 raise StopIteration
         elif self.step < 0:
             if self.item <= self.end_element:
                 raise StopIteration
-        return self.item
-
+        returned_item = self.item
+        self.item = self.item + self.step
+        return returned_item
 
 def cpu_full_afinity():
     import psutil
