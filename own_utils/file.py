@@ -184,6 +184,25 @@ def copy(src_path:str, dst:str, use_rsync: bool =False, recursive = False, archi
 
 class MultiProcessCacheHandler():
     ## Class to handle cache shared through several processes
+    def create_error_file(self):
+        with open (self.error_file, "w"):
+            pass
+    def check_raised_error(self)->bool:
+        try:
+            return os.path.exists(self.error_file)
+        except FileNotFoundError:
+            return False
+    
+    def check_and_reraise_raised_error(self):
+        try:
+            if os.path.exists(self.error_file):
+                raise Exception(f"error detected {self.error_file}")
+        except FileNotFoundError:
+            return
+    
+
+
+        
     def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False):
         """
         INPUT :
@@ -207,14 +226,29 @@ class MultiProcessCacheHandler():
             self.save_dir = os.path.normcase(save_dir) +"/"        
         self.nb_process = nb_process
         self.process_id = process_id
+        self.communication_folder = os.path.join(os.path.expanduser('~'), ".cache_handler_communication/" + self.cache_link.replace("/", '-'))
+        self.error_file =  os.path.join(self.communication_folder, "ERROR")
+
         if process_id == 0:
-            self.leader = True
-            self.cache_dir = os.path.join(cache_dir,str(uuid.uuid4()))
-            os.makedirs(self.cache_dir)
-            assert not(os.path.exists(self.cache_link))
-            os.symlink(self.cache_dir, self.cache_link, target_is_directory= True)
+            try:
+                self.leader = True
+                self.cache_dir = os.path.join(cache_dir,str(uuid.uuid4()))
+                os.makedirs(self.cache_dir)
+                assert not(os.path.exists(self.cache_link))
+                try:
+                    os.makedirs(self.communication_folder)
+                except FileExistsError as e:
+                    self.create_error_file()
+                    raise e
+                os.symlink(self.cache_dir, self.cache_link, target_is_directory= True)
+            except Exception as e:
+                self.create_error_file()
+                raise e
+
         while not(os.path.exists(self.cache_link)):
             time.sleep(1)
+            self.check_and_reraise_raised_error()
+
         self.cache_link = format_prepath(self.cache_link)
     def add_folder_to_save(self, folder_path:str, dst_path:str=None):
         """
@@ -241,32 +275,35 @@ class MultiProcessCacheHandler():
         if self.leader:
             print("waiting for all cache handler to be ready", flush =True)
         if not(self.leader) or not(self.multithread_save):
-            with open(os.path.join(self.cache_link, "READY_" + str(self.process_id)), "w"):
+            with open(os.path.join(self.communication_folder, "READY_" + str(self.process_id)), "w"):
                 pass
 
         if self.multithread_save:
             if self.leader:
                 print("saving cache with multi process...", flush = True)
                 ## cheating
-                with open(os.path.join(self.cache_link, "folder_to_save"), "w")  as file_cheat:
+                with open(os.path.join(self.communication_folder, "folder_to_save"), "w")  as file_cheat:
                     for (src_folder, dst_folder) in self.folder_to_save:
                         file_cheat.write(src_folder + "$" + dst_folder+"\n")
-                with open(os.path.join(self.cache_link, "READY_" + str(self.process_id)), "w"):
+                with open(os.path.join(self.communication_folder, "READY_" + str(self.process_id)), "w"):
                     pass
-            while not(os.path.exists(os.path.join(self.cache_link, "folder_to_save"))) or len(list(filter(lambda elt : elt[:5] == "READY", os.listdir(self.cache_dir)))) != self.nb_process:
+            while not(os.path.exists(os.path.join(self.communication_folder, "folder_to_save"))) or len(list(filter(lambda elt : elt[:5] == "READY", os.listdir(self.cache_dir)))) != self.nb_process:
                 time.sleep(1)
             if self.leader:
                 time.sleep(2)
-                run("rm {}".format(os.path.join(self.cache_dir, "READY_*")), False, True, True)
+                run("rm {}".format(os.path.join(self.communication_folder, "READY_*")), False, True, True)
             if not(self.leader):
-                file_content = extract_file_lines_to_list(os.path.join(self.cache_link, "folder_to_save"))
+                file_content = extract_file_lines_to_list(os.path.join(self.communication_folder, "folder_to_save"))
                 self.folder_to_save = [elt.split("$") for elt in file_content]
                 self.cache_dir = os.readlink(self.cache_link)
             for (src_folder, dst_folder) in self.folder_to_save:
-                try:
-                    os.remove(os.path.join(src_folder, "UNHOLDFOLDEREXTRACTION"))
-                except Exception:
-                    pass
+                if self.leader:
+                    try:
+                        file_to_remove_list = list(filter(lambda elt: elt[:22] == "UNHOLDFOLDEREXTRACTION", os.listdir(self.communication_folder)))
+                        for file in file_to_remove_list:
+                            os.remove(os.path.join(self.communication_folder, file))
+                    except Exception:
+                        pass
                 if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
                         os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
                         src_folder = os.path.join(self.cache_dir, self.root_renaming)
@@ -290,13 +327,13 @@ class MultiProcessCacheHandler():
                     elts_to_compress = elts_to_compress[self.process_id * nb_elt_per_process: (self.process_id + 1) * nb_elt_per_process]
                 cmd  = "tar -cf " +tar_name +  " "+ "-C "+ os.path.dirname(src_folder) + " " + " ".join(elts_to_compress)
                 run(cmd, False, False)
-                with open(os.path.join(self.cache_link, "FINISH_" + str(self.process_id)), "w"):
+                with open(os.path.join(self.communication_folder, "FINISH_" + str(self.process_id)), "w"):
                     pass
                 final_tar_name =  src_folder+".tar"
                 if self.leader:
                     while len(list(filter(lambda elt : elt[:7] == "FINISH_", os.listdir(self.cache_dir)))) != self.nb_process:
                         time.sleep(1)
-                    with open(os.path.join(self.cache_link, "WAIT"), "w"):
+                    with open(os.path.join(self.communication_folder, "WAIT"), "w"):
                         pass
                     tars_to_concatenate = [src_folder + i + ".tar" for i in range(self.nb_process)]
                     concatenate_tar_list(tars_to_concatenate, final_tar_name, buffer=int(1e9), remove_sub_tar = True)
@@ -307,24 +344,29 @@ class MultiProcessCacheHandler():
                     #     run("mv {} {}".format(final_tar_name, rename_tar), False, False)
                     #     final_tar_name = rename_tar 
                     run("mv {}  {}".format(final_tar_name, dst_folder), False, False) 
-                    run("rm {}".format(os.path.join(self.cache_dir, "WAIT")), False, True, True)
+                    run("rm {}".format(os.path.join(self.communication_folder, "WAIT")), False, True, True)
                     time.sleep(2)
                     # run("rm {}".format(os.path.join(self.cache_dir, "READY_*")), False, True, True)
                 else:
                     while  not(os.path.exists(final_tar_name)):
                         time.sleep(1)
-                    while os.path.exists(os.path.join(self.cache_link, "WAIT")):
+                    while os.path.exists(os.path.join(self.communication_folder, "WAIT")):
                         time.sleep(1)
             return 
         
         if self.leader:
             print("saving cache...", flush = True)
-            while len(list(filter(lambda elt : elt[:5] == "READY", os.listdir(self.cache_dir)))) != self.nb_process:
+            while len(list(filter(lambda elt : elt[:5] == "READY", os.listdir(self.communication_folder)))) != self.nb_process:
                 time.sleep(1)
-            run("rm {}".format(os.path.join(self.cache_dir, "READY_*")), False, True, True)
+            run("rm {}".format(os.path.join(self.communication_folder, "READY_*")), False, True, True)
             for (src_folder, dst_folder) in self.folder_to_save:
                 print("dealing with ", src_folder, " to ", dst_folder,flush=True)
-                os.remove(os.path.join(src_folder, "UNHOLDFOLDEREXTRACTION"))
+                try:
+                    file_to_remove_list = list(filter(lambda elt: elt[:22] == "UNHOLDFOLDEREXTRACTION", os.listdir(self.communication_folder)))
+                    for file in file_to_remove_list:
+                        os.remove(os.path.join(self.communication_folder, file))
+                except Exception:
+                    pass
                 if os.path.normpath(src_folder) == os.path.normpath(self.cache_dir):
                         print("dealing with root folder", flush=True)
                         # TODO do not do this, pick all the file and create a new folder with the correct name !
@@ -372,23 +414,19 @@ class MultiProcessCacheHandler():
         else:
             resulting_folder_path= os.path.join( self.cache_link,src_path.split("/")[-1].split(".tar")[0] )
 
-        unholder_path = os.path.join(self.cache_link, "UNHOLDFOLDEREXTRACTION")
-        error_file = os.path.join(self.cache_link, "ERROR")
+        unholder_path = os.path.join(self.communication_folder, f"UNHOLDFOLDEREXTRACTION_{src_path.replace('/', '-')}")
         if not(self.leader):
             if extract_at_root:
                 assert not(self.root_renaming), "more than one extraction at root level"
                 self.root_renaming = os.path.basename(resulting_folder_path)
             while not(os.path.exists(unholder_path)):
                 time.sleep(5)
-                if os.path.exists(error_file):
-                    raise Exception("error met in the leader")
-            if os.path.exists(error_file):
-                raise Exception("error met in the leader")
+                self.check_and_reraise_raised_error()
+            self.check_and_reraise_raised_error()
             return self.cache_link if extract_at_root else resulting_folder_path   
         try:
-            if(os.path.exists(error_file)):
-                print("old error file detected ", flush = True)
-                run(f"rm {error_file}", False, False)
+            if self.check_raised_error():
+                raise FileExistsError(f"old error file detected {self.error_file}")
             dest_path = os.path.join(self.cache_dir, dest_relative_path)
             os.makedirs(dest_path, exist_ok=True)
             if copy:
@@ -414,8 +452,7 @@ class MultiProcessCacheHandler():
                 pass
             return self.cache_dir if extract_at_root else resulting_folder_path
         except Exception as e:
-            with open (error_file, "w"):
-                pass
+            self.create_error_file()
             raise e
         
 
@@ -430,10 +467,13 @@ class MultiProcessCacheHandler():
             run("rm -rf {}".format(os.path.normcase(self.cache_dir)), False, True, True)
             print("deleting syminlk", flush=True)
             run("rm {}".format(os.path.normcase(self.cache_link)[:-1]), False, True, True)
+            print("deleting communication folder", flush=True)
+            run("rm -rf {}".format(os.path.normcase(self.communication_folder)), False, True, True)
             assert not(os.path.exists(os.path.normcase(self.cache_dir)))
             time.sleep(2)
         else:
             while os.path.exists(self.cache_link):
+                self.check_and_reraise_raised_error()
                 time.sleep(1)
 
 
