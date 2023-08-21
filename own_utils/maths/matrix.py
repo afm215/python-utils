@@ -1,5 +1,6 @@
 import numpy as np
-def generate_2D_rotation_matrix(theta:float, dtype=np.float34):
+
+def generate_2D_rotation_matrix(theta:float, dtype=np.float32):
     """
     Generate a 2D rotational matrix
     INPUT:

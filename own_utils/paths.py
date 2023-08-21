@@ -3,7 +3,7 @@ __package__="own_utils"
 import os 
 from .bash_command import run
 
-def flatten_paths_recursively(root_path:str, output_absolute_path:bool=False, depth: "int|None" = None, exclusion_list:'list[str]' = []):
+def flatten_paths_recursively(root_path:str, output_absolute_path:bool=False, depth: "int|None" = None, exclusion_list:'list[str]' = [], keep_dir=False):
     """
     return the list of the paths of all the file contained in root_path
     INPUT:
@@ -11,6 +11,7 @@ def flatten_paths_recursively(root_path:str, output_absolute_path:bool=False, de
     - output_absolute_path : if set to True, will store the absolute path
     - depth : if not None will stop the elts search at the given step
     - exclusion_list : will ignore the files whose name repsect the regexp stored
+    - keep_dir : keep dir within returned list
     """
     result = []
     if os.path.isfile(root_path) or(not(depth is None) and depth == 0 ):
@@ -19,9 +20,11 @@ def flatten_paths_recursively(root_path:str, output_absolute_path:bool=False, de
         return [root_path]
     
     root_path = format_prepath(root_path)
+    if keep_dir:
+        result.append(root_path[:-1])
     for elt in os.listdir(root_path):
         elt_path = root_path + elt
-        result += flatten_paths_recursively(elt_path, output_absolute_path, None if depth is None else depth - 1)
+        result += flatten_paths_recursively(elt_path, output_absolute_path, None if depth is None else depth - 1, exclusion_list=exclusion_list, keep_dir=keep_dir)
     return result
 
 def format_prepath(prepath: str) -> str:
