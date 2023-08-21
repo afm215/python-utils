@@ -223,7 +223,7 @@ class MultiProcessCacheHandler():
         self.save_dir = None
         self.root_renaming=None
         if save_dir:
-            self.save_dir = os.path.normcase(save_dir) +"/"        
+            self.save_dir = os.path.normpath(save_dir) +"/"        
         self.nb_process = nb_process
         self.process_id = process_id
         self.communication_folder = os.path.join(os.path.expanduser('~'), ".cache_handler_communication/" + self.cache_link.replace("/", '-'))
@@ -304,7 +304,7 @@ class MultiProcessCacheHandler():
                             os.remove(os.path.join(self.communication_folder, file))
                     except Exception:
                         pass
-                if os.path.normpath(src_folder) == os.path.normcase(self.cache_dir):
+                if os.path.normpath(src_folder) == os.path.normpath(self.cache_dir):
                         os.makedirs(os.path.join(self.cache_dir, self.root_renaming))
                         src_folder = os.path.join(self.cache_dir, self.root_renaming)
                         run("mv {} {}".format(os.path.join(self.cache_dir, "*"), src_folder), False, True, True)
@@ -464,12 +464,12 @@ class MultiProcessCacheHandler():
         
         if self.leader:
             print("deleating cache", flush=True)
-            run("rm -rf {}".format(os.path.normcase(self.cache_dir)), False, True, True)
+            run("rm -rf {}".format(os.path.normpath(self.cache_dir)), False, True, True)
             print("deleting syminlk", flush=True)
-            run("rm {}".format(os.path.normcase(self.cache_link)[:-1]), False, True, True)
+            run("rm {}".format(os.path.normpath(self.cache_link)), False, True, True)
             print("deleting communication folder", flush=True)
-            run("rm -rf {}".format(os.path.normcase(self.communication_folder)), False, True, True)
-            assert not(os.path.exists(os.path.normcase(self.cache_dir)))
+            run("rm -rf {}".format(os.path.normpath(self.communication_folder)), False, True, True)
+            assert not(os.path.exists(os.path.normpath(self.cache_dir)))
             time.sleep(2)
         else:
             while os.path.exists(self.cache_link):

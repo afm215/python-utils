@@ -50,6 +50,7 @@ def spatially_depending_thresholding(img: np.ndarray, areas_list: 'list[tuple[in
     return returned_img
 
 def visualize_imgs_list_as_grid(list_:'list[Image.Image] | list[tuple[str, Image.Image]]') -> None:
+  import textwrap
   """
     Plot the list_ in matpltolib. list_ can be a lust of PIL Image or a liste of tuples  key(i.e. an image title) / Image  
   """

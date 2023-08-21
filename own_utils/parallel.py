@@ -1,9 +1,9 @@
-from joblib import Parallel, delayed
 from .bash_command import run
 import os 
 from .paths import format_prepath,  apply_prepath_on_list
 
 def parallelized_function_on_list(func, list_, n_jobs = 8, verbose = 1, require=None, pre_dispatch='2 * n_jobs', max_nbytes='1M'):
+    from joblib import Parallel, delayed
     result = Parallel(n_jobs = n_jobs, verbose = verbose, require = require, pre_dispatch= pre_dispatch,max_nbytes=max_nbytes)(delayed(func)(elt) for elt in list_)
     return result
 
