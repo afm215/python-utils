@@ -1,3 +1,5 @@
+__package__="own_utils"
+
 import math 
 
 def split_recursively(list_or_str, *args,  ok_if_not_string=True,delete_empty_string=True, **kwargs):

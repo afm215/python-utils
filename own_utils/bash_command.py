@@ -1,3 +1,5 @@
+__package__="own_utils"
+
 import subprocess
 from . import basics
 COMMAND_OUTPUT_IN_STDERR = ["ssh", "bash"]

@@ -1,3 +1,5 @@
+__package__="own_utils"
+
 from .bash_command import run
 import os 
 from .paths import format_prepath,  apply_prepath_on_list

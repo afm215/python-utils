@@ -1,3 +1,5 @@
+__package__="own_utils"
+
 import tarfile
 from .basics import format_number
 from .paths import flatten_paths_recursively, format_prepath

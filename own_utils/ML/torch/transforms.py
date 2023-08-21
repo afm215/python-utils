@@ -1,3 +1,4 @@
+__package__="own_utils.ML.torch"
 import torch
 from torch import nn
 import numpy as np 

@@ -1,3 +1,5 @@
+__package__="own_utils"
+
 import os 
 from .bash_command import run
 
