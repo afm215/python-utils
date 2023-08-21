@@ -19,7 +19,7 @@ for fname in flist:
         bname =os.path.join(os.path.dirname(fname), os.path.splitext(os.path.basename(fname))[0])+".html"  # eg 'smartbox'
         new_fname =os.path.join(os.path.dirname(fname),(bname.replace("/", ".") ))
         os.system(f"mv {fname} {new_fname}")
-        os.system('mv %s.html %s' % (bname,new_fname))
+        os.system('mv %s %s' % (bname,new_fname))
 
 os.system('pydoc -w %s' % dirname)
 os.system('mv *.html docs')
