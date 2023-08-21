@@ -1,5 +1,5 @@
-__version__='0.1.9'
-# Ordered list now returns index when adding a new elt
+__version__='0.1.10'
+# Add RandomCrop to the transforms file
 from . import paths
 from . import basics
 from . import bash_command

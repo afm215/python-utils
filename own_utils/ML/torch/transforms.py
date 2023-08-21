@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from torchvision.transforms.functional import resize
 from PIL import Image
 from ...Image.type_checker import is_pil_image
+from ..DataProcessing.box import randomize_box
+
 
 def get_gaussian_kernel1d(kernel_size: int, sigma: float):
    # extracted from torchvision.transforms.functional_tensor 
@@ -138,6 +140,22 @@ class ToPILImageWrapper(torch.nn.Module):
         if isinstance(img, Image.Image):
             return img
         return self.ToPil(img)
+    
+class RandomCrop(torch.nn.Module):
+
+    def __init__(self, temperature_range:'tuple[int, int]' = [0.01,0.1]):
+        super().__init__()
+        self.temperature_range = temperature_range
+    def forward(self, img: torch.Tensor, verbose = 0):
+        temperature= np.random.uniform(self.temperature_range[0], self.temperature_range[1])
+        image_size = img.size()[-2:]
+        images_box = [0,0,image_size[1],image_size[0]]
+        x, y, width, height = randomize_box(images_box,image_size, 0, temperature)
+        if verbose > 0 :
+            print(f"temp:{temperature} box:{x, y, width, height}")
+        return img[:,y:y + height, x:x + width]
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(temperature_range={self.temperature_range}"
 
 def debugging_transform_list(img, transform):
   import copy
