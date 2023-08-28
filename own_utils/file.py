@@ -466,11 +466,20 @@ class MultiProcessCacheHandler():
         
         if self.leader:
             print("deleating cache", flush=True)
-            run("rm -rf {}".format(os.path.normpath(self.cache_dir)), False, True, True)
+            try:
+                run("rm -rf {}".format(os.path.normpath(self.cache_dir)), False, True, True)
+            except Exception as e:
+                print(f"fail to delete {os.path.normpath(self.cache_dir)}", flush=True)
             print("deleting syminlk", flush=True)
-            run("rm {}".format(os.path.normpath(self.cache_link)), False, True, True)
+            try:
+                run("rm {}".format(os.path.normpath(self.cache_link)), False, True, True)
+            except Exception as e:
+                print(f"fail to delete {os.path.normpath(self.cache_link)}", flush=True)
             print("deleting communication folder", flush=True)
-            run("rm -rf {}".format(os.path.normpath(self.communication_folder)), False, True, True)
+            try:
+                run("rm -rf {}".format(os.path.normpath(self.communication_folder)), False, True, True)
+            except Exception as e:
+                print(f"fail to delete {os.path.normpath(self.communication_folder)}", flush=True)
             assert not(os.path.exists(os.path.normpath(self.cache_dir)))
             time.sleep(2)
         else:
