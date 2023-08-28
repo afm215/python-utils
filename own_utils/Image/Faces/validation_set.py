@@ -50,11 +50,11 @@ def prepare_validation_set_conversion(imgs_dir, pairs_file):
         else:
             raise NotImplementedError(f"DatasetType {DataSetType} is not implemented")
     
-    labels = []
-    imgs_list = []
     pairs = open(pairs_file, "r").readlines()
+    imgs_list = []
+    labels = np.zeros(len(pairs), dtype=bool)
     print(f"loading {len(pairs)} pairs")
-    for pair in tqdm(pairs):
+    for i, pair in enumerate(tqdm(pairs)):
         if pair[-1] == "\n":
             pair = pair[:-1]
         pair_1, pair_2 = pair.split(' ')
@@ -63,20 +63,20 @@ def prepare_validation_set_conversion(imgs_dir, pairs_file):
         id1 = "_".join(pair_1.split("_")[:-1])
         id2 = "_".join(pair_2.split("_")[:-1])
         if id1 == id2:
-            labels.append(1)
+            labels[i] = 1
         else:
-            labels.append(0)
+            labels[i] = 0
             
         imgs_list.append(convert_img_to_bin(Image.open(image_1_path)))
         imgs_list.append(convert_img_to_bin(Image.open(image_2_path)))
     return imgs_list, labels
 
 def write_validation_data_for_adaface(imgs_list, labels, output_file_name:str):
-    np_imgs_list = [np.asarray(img) for img in imgs_list]
+    np_imgs_list = [img for img in imgs_list]
 
     with open(output_file_name, 'wb') as file:
         # A new file will be created
-        bin_ = pickle.dumps([np_imgs_list, labels], -1)
+        bin_ = pickle.dumps((np_imgs_list, labels), -1)
         file.write(bin_)
         file.flush()
     # A new file will be created

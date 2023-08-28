@@ -407,6 +407,7 @@ class MultiProcessCacheHandler():
         - src_path: path toward a folder or a tar file 
         - copy: if set to False, the folder will be moved
         - extract_at_root: if set to True will move the extracted tar content to the root
+        
         Returns the resulting folder path
         """
         if not(src_path [-4:] == ".tar") and not(is_file):
