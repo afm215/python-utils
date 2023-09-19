@@ -227,6 +227,7 @@ class MultiProcessCacheHandler():
         self.leader = False
         self.cache_dir = None
         self.multithread_save = multithread_save
+        cache_path = os.path.abspath(cache_path) 
         if cache_path[-1] == "/":
             cache_path = cache_path[:-1]
         self.cache_link= cache_path
