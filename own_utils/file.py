@@ -7,6 +7,7 @@ from .bash_command import run
 import os
 import time 
 import uuid
+from tqdm import tqdm
 
 def extract_file_lines_to_list(file_path:str, skip_blank_line=True):
     """
@@ -183,6 +184,13 @@ def copy(src_path:str, dst:str, use_rsync: bool =False, recursive = False, archi
     cmd = tool + core
     run(cmd, False, False)
 
+def move_mapped_files_from_src(folder_to_map, src_folder, output_folder):
+    files_to_be_map = flatten_paths_recursively(folder_to_map, False)
+    for file_path in tqdm(files_to_be_map):    
+        src_path = os.path.join(src_folder, file_path)
+        os.makedirs(os.path.join(output_folder, os.path.dirname(file_path)), exist_ok=True)
+        dest_path = os.path.join(output_folder, file_path)
+        run("rsync -ah {}  {}".format(src_path, dest_path), False, False)       
 
 class MultiProcessCacheHandler():
     ## Class to handle cache shared through several processes
@@ -205,7 +213,7 @@ class MultiProcessCacheHandler():
 
 
         
-    def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False):
+    def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False, debugging:bool = False):
         """
         INPUT :
         - cache_dir: path of the cache fodler
@@ -215,6 +223,7 @@ class MultiProcessCacheHandler():
         - save_dir : if not none, will be considered as a default save path for the cache (see add_folder_to_save)
         - multithread_save : use multi process compress into tar of set to True 
         """
+        self.debugging = debugging
         self.leader = False
         self.cache_dir = None
         self.multithread_save = multithread_save
@@ -230,12 +239,13 @@ class MultiProcessCacheHandler():
         self.process_id = process_id
         self.communication_folder = os.path.join(os.path.expanduser('~'), ".cache_handler_communication/" + self.cache_link.replace("/", '-'))
         self.error_file =  os.path.join(self.communication_folder, "ERROR")
-
         if process_id == 0:
             try:
                 self.leader = True
                 self.cache_dir = os.path.join(cache_dir,str(uuid.uuid4()))
                 os.makedirs(self.cache_dir)
+                if os.path.exists(self.cache_link):
+                    print(f"link {self.cache_link} exists ")
                 assert not(os.path.exists(self.cache_link))
                 try:
                     os.makedirs(self.communication_folder)
@@ -243,9 +253,11 @@ class MultiProcessCacheHandler():
                     self.create_error_file()
                     raise e
                 os.symlink(self.cache_dir, self.cache_link, target_is_directory= True)
+                print("symlink created", flush=True)
             except Exception as e:
                 self.create_error_file()
                 raise e
+            
 
         while not(os.path.exists(self.cache_link)):
             time.sleep(1)
@@ -260,6 +272,8 @@ class MultiProcessCacheHandler():
         - folder_path: relative or abs path toward the folder to be saved
         - dst_path : destination folder
         """
+        if self.debugging:
+            return
         if not(self.leader):
             return
         if not(dst_path):
@@ -273,6 +287,8 @@ class MultiProcessCacheHandler():
         self.folder_to_save.append([cache_path_to_save, format_prepath(dst_path)])
 
     def save(self):
+        if self.debugging:
+            return
         # show that the process is ready
         if self.leader:
             print("waiting for all cache handler to be ready", flush =True)
@@ -407,15 +423,23 @@ class MultiProcessCacheHandler():
         - src_path: path toward a folder or a tar file 
         - copy: if set to False, the folder will be moved
         - extract_at_root: if set to True will move the extracted tar content to the root
-        
+
         Returns the resulting folder path
         """
+        if self.debugging:
+            return src_path
         if not(src_path [-4:] == ".tar") and not(is_file):
             src_path = format_prepath(src_path)[:-1]
         if self.leader:
-            resulting_folder_path= os.path.join( self.cache_dir,src_path.split("/")[-1].split(".tar")[0] )
+            if dest_relative_path:
+                resulting_folder_path= os.path.join( self.cache_dir,dest_relative_path, src_path.split("/")[-1].split(".tar")[0] )
+            else:
+                resulting_folder_path= os.path.join( self.cache_dir,src_path.split("/")[-1].split(".tar")[0] )
         else:
-            resulting_folder_path= os.path.join( self.cache_link,src_path.split("/")[-1].split(".tar")[0] )
+            if dest_relative_path:
+                resulting_folder_path= os.path.join( self.cache_link,dest_relative_path,src_path.split("/")[-1].split(".tar")[0] )
+            else:
+                resulting_folder_path= os.path.join( self.cache_link,src_path.split("/")[-1].split(".tar")[0] )
 
         unholder_path = os.path.join(self.communication_folder, f"UNHOLDFOLDEREXTRACTION_{src_path.replace('/', '-')}")
         if not(self.leader):
@@ -461,6 +485,8 @@ class MultiProcessCacheHandler():
 
 
     def __del__(self):
+        if self.debugging:
+            return
         if self.leader:
             print("saving folder to be saved", flush=True)
         self.save()
