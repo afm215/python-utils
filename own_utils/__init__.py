@@ -1,5 +1,5 @@
 __version__='0.1.13'
-# Adding CacheHandler doesn't crash when trying to delete util folder
+# file mapping within file.py + file resolver 
 from . import paths
 from . import basics
 from . import bash_command
