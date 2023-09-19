@@ -10,6 +10,13 @@ from PIL import Image
 from ...Image.type_checker import is_pil_image
 from ..DataProcessing.box import randomize_box
 
+def torch_rgb2gray(rgb: torch.Tensor):
+    assert len(rgb.size()) == 3
+    r, g, b = rgb[0,:,:], rgb[1,:,:], rgb[2,:,:]
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+
+    return gray
+
 
 def get_gaussian_kernel1d(kernel_size: int, sigma: float):
    # extracted from torchvision.transforms.functional_tensor 
