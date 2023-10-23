@@ -6,10 +6,13 @@ from tqdm import tqdm
 import pickle
 import io
 
-def convert_img_to_bin(img: Image.Image, encoding_format:str=None):
+def convert_img_to_bin(img: Image.Image, encoding_format:str=None, convert_to_bgr=False):
     if encoding_format is None:
         encoding_format = img.format
-    img = Image.fromarray(np.asarray(img))
+    if convert_to_bgr:
+        img = Image.fromarray(np.asarray(img)[:,:,[2,1,0]])
+    else:
+        img = Image.fromarray(np.asarray(img))
     img_b = io.BytesIO()
     img.save(img_b, format=encoding_format)
     img_b =  img_b.getvalue()
