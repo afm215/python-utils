@@ -8,6 +8,8 @@ import os
 import time 
 import uuid
 from tqdm import tqdm
+import tarfile
+
 
 def extract_file_lines_to_list(file_path:str, skip_blank_line=True):
     """
@@ -185,12 +187,18 @@ def copy(src_path:str, dst:str, use_rsync: bool =False, recursive = False, archi
     run(cmd, False, False)
 
 def move_mapped_files_from_src(folder_to_map, src_folder, output_folder):
+    import shutil
     files_to_be_map = flatten_paths_recursively(folder_to_map, False)
     for file_path in tqdm(files_to_be_map):    
         src_path = os.path.join(src_folder, file_path)
         os.makedirs(os.path.join(output_folder, os.path.dirname(file_path)), exist_ok=True)
         dest_path = os.path.join(output_folder, file_path)
-        run("rsync -ah {}  {}".format(src_path, dest_path), False, False)       
+        shutil.copy(src_path, dest_path)
+        # run("rsync -ah {}  {}".format(src_path, dest_path), False, False)    
+
+def count_files_in_tar(tar_file_path):
+    with tarfile.open(tar_file_path, "r") as tar:
+        return len(tar.getmembers())   
 
 class MultiProcessCacheHandler():
     ## Class to handle cache shared through several processes
