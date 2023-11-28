@@ -1,5 +1,5 @@
-__version__='0.1.14'
-# flatten_recursively update , relative path fix
+__version__='0.1.15'
+# tar count, nb imgs per id, images integrity
 from . import paths
 from . import basics
 from . import bash_command
