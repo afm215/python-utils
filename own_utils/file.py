@@ -221,7 +221,7 @@ class MultiProcessCacheHandler():
 
 
         
-    def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False, debugging:bool = False):
+    def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False, debugging:bool = False, do_not_delete_scratch:bool = False):
         """
         INPUT :
         - cache_dir: path of the cache fodler
@@ -230,10 +230,13 @@ class MultiProcessCacheHandler():
         - nb_process : nb of process sharing the same cache        
         - save_dir : if not none, will be considered as a default save path for the cache (see add_folder_to_save)
         - multithread_save : use multi process compress into tar of set to True 
+        - debuuging : print logs / not log yet
+        - do_not_delete_scratch : if set to true; the handler won't clear the cache when the handler variable is deleted
         """
         self.debugging = debugging
         self.leader = False
         self.cache_dir = None
+        self.do_not_delete_scratch = do_not_delete_scratch
         self.multithread_save = multithread_save
         cache_path = os.path.abspath(cache_path) 
         if cache_path[-1] == "/":
@@ -254,11 +257,23 @@ class MultiProcessCacheHandler():
                 self.cache_dir = os.path.join(cache_dir,str(uuid.uuid4()))
                 os.makedirs(self.cache_dir)
                 if os.path.exists(self.cache_link):
-                    print(f"link {self.cache_link} exists ")
-                assert not(os.path.exists(self.cache_link))
+                    print(f"link {self.cache_link} exists and has been overwriten")
+                    try:
+                        run("rm {}".format(os.path.normpath(self.cache_link)), False, True, True)
+                    except Exception as e:
+                        print(f"fail to delete {os.path.normpath(self.cache_link)}", flush=True)
+                        self.create_error_file()
+                        raise e
                 try:
                     os.makedirs(self.communication_folder)
                 except FileExistsError as e:
+                    try:
+                        run("rm -rf {}".format(os.path.normpath(self.communication_folder)), False, True, True)
+                        os.makedirs(self.communication_folder)
+                    except Exception as e:
+                        print(f"fail to delete {os.path.normpath(self.communication_folder)}", flush=True)
+                        self.create_error_file()
+                    print(self.communication_folder, " existed and has been overwriten", flush=True)
                     self.create_error_file()
                     raise e
                 os.symlink(self.cache_dir, self.cache_link, target_is_directory= True)
@@ -501,11 +516,12 @@ class MultiProcessCacheHandler():
         self.save()
         
         if self.leader:
-            print("deleating cache", flush=True)
-            try:
-                run("rm -rf {}".format(os.path.normpath(self.cache_dir)), False, True, True)
-            except Exception as e:
-                print(f"fail to delete {os.path.normpath(self.cache_dir)}", flush=True)
+            if not(self.do_not_delete_scratch):
+                print("deleating cache", flush=True)
+                try:
+                    run("rm -rf {}".format(os.path.normpath(self.cache_dir)), False, True, True)
+                except Exception as e:
+                    print(f"fail to delete {os.path.normpath(self.cache_dir)}", flush=True)
             print("deleting syminlk", flush=True)
             try:
                 run("rm {}".format(os.path.normpath(self.cache_link)), False, True, True)

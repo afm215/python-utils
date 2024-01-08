@@ -1,5 +1,5 @@
-__version__='0.1.15'
-# tar count, nb imgs per id, images integrity
+__version__='0.1.16'
+# Cache Handler update 
 from . import paths
 from . import basics
 from . import bash_command
