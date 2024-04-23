@@ -221,7 +221,7 @@ class MultiProcessCacheHandler():
 
 
         
-    def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False, debugging:bool = False, do_not_delete_scratch:bool = False):
+    def __init__(self, cache_dir: str, cache_path: str, process_id: int = 0,nb_process:int = 1,  save_dir: str=None, multithread_save=False, debugging:bool = False, do_not_delete_scratch:bool = False, do_no_create_sub_folder:bool =False):
         """
         INPUT :
         - cache_dir: path of the cache fodler
@@ -232,11 +232,13 @@ class MultiProcessCacheHandler():
         - multithread_save : use multi process compress into tar of set to True 
         - debuuging : print logs / not log yet
         - do_not_delete_scratch : if set to true; the handler won't clear the cache when the handler variable is deleted
+        - do_no_create_sub_folder : if set to True, the handler will no create a subfolder for the cache and will directly write in cache_dir
         """
         self.debugging = debugging
         self.leader = False
         self.cache_dir = None
         self.do_not_delete_scratch = do_not_delete_scratch
+        self.do_no_create_sub_folder = do_no_create_sub_folder
         self.multithread_save = multithread_save
         cache_path = os.path.abspath(cache_path) 
         if cache_path[-1] == "/":
@@ -254,8 +256,11 @@ class MultiProcessCacheHandler():
         if process_id == 0:
             try:
                 self.leader = True
-                self.cache_dir = os.path.join(cache_dir,str(uuid.uuid4()))
-                os.makedirs(self.cache_dir)
+                if do_no_create_sub_folder:
+                    self.cache_dir = cache_dir
+                else:
+                    self.cache_dir = os.path.join(cache_dir,str(uuid.uuid4()))
+                os.makedirs(self.cache_dir, exist_ok=do_no_create_sub_folder)
                 if os.path.exists(self.cache_link):
                     print(f"link {self.cache_link} exists and has been overwriten")
                     try:
@@ -279,6 +284,8 @@ class MultiProcessCacheHandler():
                 os.symlink(self.cache_dir, self.cache_link, target_is_directory= True)
                 print("symlink created", flush=True)
             except Exception as e:
+                import traceback
+                print("error in init", traceback.format_exc() )
                 self.create_error_file()
                 raise e
             
@@ -312,6 +319,9 @@ class MultiProcessCacheHandler():
 
     def save(self):
         if self.debugging:
+            return
+        if self.do_not_delete_scratch:
+            print("not saving since everything is stored on the cache", flush=True)
             return
         # show that the process is ready
         if self.leader:
@@ -440,7 +450,7 @@ class MultiProcessCacheHandler():
 
 
     
-    def move_and_extract_folder(self, src_path:str, dest_relative_path = "", copy:bool =True, extract_at_root:bool=True, is_file=False):
+    def move_and_extract_folder(self, src_path:str, dest_relative_path = "", copy:bool =True, extract_at_root:bool=True, is_file=False, do_not_extract:bool=False):
         """
         Will move the specifier folder/file to the cache. If the path points to a tar file, the tar file will be extracted within the cache 
         INPUT:
@@ -464,7 +474,9 @@ class MultiProcessCacheHandler():
                 resulting_folder_path= os.path.join( self.cache_link,dest_relative_path,src_path.split("/")[-1].split(".tar")[0] )
             else:
                 resulting_folder_path= os.path.join( self.cache_link,src_path.split("/")[-1].split(".tar")[0] )
-
+        if self.do_not_delete_scratch and not(extract_at_root) and self.do_no_create_sub_folder:
+            if os.path.exists(resulting_folder_path):
+                return resulting_folder_path
         unholder_path = os.path.join(self.communication_folder, f"UNHOLDFOLDEREXTRACTION_{src_path.replace('/', '-')}")
         if not(self.leader):
             if extract_at_root:
@@ -485,10 +497,13 @@ class MultiProcessCacheHandler():
             else:
                 run("mv {}  {}".format(src_path,  os.path.join(self.cache_dir, dest_path)), False, False)
             if src_path[-4:] == ".tar":
-                tar_name  = os.path.basename(src_path)
-                print("extracting ", os.path.join(dest_path, tar_name), flush = True)
-                extracts_tar(os.path.join(dest_path, tar_name), remove_init_tar_folder=True)
-                print("content is then ", run("ls " + dest_path , False, False), flush=True)
+                if do_not_extract:
+                    resulting_folder_path += ".tar"
+                else:
+                    tar_name  = os.path.basename(src_path)
+                    print("extracting ", os.path.join(dest_path, tar_name), flush = True)
+                    extracts_tar(os.path.join(dest_path, tar_name), remove_init_tar_folder=True)
+                    print("content is then ", run("ls " + dest_path , False, False), flush=True)
             if extract_at_root:
                 assert os.path.isdir(resulting_folder_path), f"{src_path} is not a folder"
                 assert not(self.root_renaming), "more than one extraction at root level"
@@ -503,9 +518,11 @@ class MultiProcessCacheHandler():
                 pass
             return self.cache_dir if extract_at_root else resulting_folder_path
         except Exception as e:
+            import traceback
             self.create_error_file()
+            if self.leader:
+                print("LEADER error is ", traceback.format_exc(), flush=True)
             raise e
-        
 
 
     def __del__(self):
@@ -532,7 +549,8 @@ class MultiProcessCacheHandler():
                 run("rm -rf {}".format(os.path.normpath(self.communication_folder)), False, True, True)
             except Exception as e:
                 print(f"fail to delete {os.path.normpath(self.communication_folder)}", flush=True)
-            assert not(os.path.exists(os.path.normpath(self.cache_dir)))
+            if not(self.do_not_delete_scratch):
+                assert not(os.path.exists(os.path.normpath(self.cache_dir)))
             time.sleep(2)
         else:
             while os.path.exists(self.cache_link):

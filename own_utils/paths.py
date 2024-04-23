@@ -2,6 +2,7 @@ __package__="own_utils"
 
 import os 
 from .bash_command import run
+from tqdm import tqdm
 
 def flatten_paths_recursively(root_path:str, output_absolute_path:bool=False, depth: "int|None" = None, exclusion_list:'list[str]' = [], keep_dir=False, parent_folder=None):
     """
@@ -21,10 +22,14 @@ def flatten_paths_recursively(root_path:str, output_absolute_path:bool=False, de
     
     root_path = format_prepath(root_path)
     if parent_folder is None:
+        print("getting all paths")
+        iterator = tqdm(os.listdir(root_path))
         parent_folder = root_path
+    else:
+        iterator = os.listdir(root_path)
     if keep_dir:
         result.append(root_path[:-1])
-    for elt in os.listdir(root_path):
+    for elt in iterator:
         elt_path = root_path + elt
         result += flatten_paths_recursively(elt_path, output_absolute_path, None if depth is None else depth - 1, exclusion_list=exclusion_list, keep_dir=keep_dir, parent_folder=parent_folder)
     return result

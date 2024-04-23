@@ -139,14 +139,19 @@ class RandomDownUpsampling(torch.nn.Module):
     
 class ToPILImageWrapper(torch.nn.Module):
     """
-    Same as ToPILImage, except doesn't raise an error when dealing with a PIL Image
+    Same as ToPILImage, except doesn't raise an error when dealing with a PIL Image with one additional opition:
+
+    - normalize: boolean, if True, a min max normalization will be applied on the input tensor before calling the ToPILImage forward function 
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self,normalize=False, *args, **kwargs):
         super().__init__()
+        self.normalize=normalize
         self.ToPil = transforms.ToPILImage(*args, **kwargs)
     def forward(self, img: torch.Tensor):
         if isinstance(img, Image.Image):
             return img
+        if self.normalize:
+            return self.ToPil((img - img.min())/(img.max() - img.min()))
         return self.ToPil(img)
     
 class RandomCrop(torch.nn.Module):
