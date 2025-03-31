@@ -4,7 +4,7 @@ import own_utils
 
 setup(name = 'own_utils', 
       version = own_utils.__version__ , 
-      packages = find_packages(exclude=['*.tests.*', 'waiting_features']),
+      packages = find_packages(exclude=['*.tests.*', 'waiting_features']),#, "*integrity_checker*", "*images_per_id_count*"]),
       # install_requires = ['os'],
 	long_description = open(os.path.join(os.path.dirname(__file__), 'README.md')).read())
       #  packages_dir = {'' : 'les_packages_maison'})
